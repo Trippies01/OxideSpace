@@ -30,6 +30,7 @@ interface VoiceChannelControlsProps {
     addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
     channelName?: string;
     onOpenTextChat?: () => void;
+    onOpenSettings?: () => void;
 }
 
 export const VoiceChannelControls = React.memo(({
@@ -54,7 +55,8 @@ export const VoiceChannelControls = React.memo(({
     setVoiceChannelUsers,
     addToast,
     channelName = 'Ses Kanalı',
-    onOpenTextChat
+    onOpenTextChat,
+    onOpenSettings
 }: VoiceChannelControlsProps) => {
     const handleLeave = async () => {
         try {
@@ -180,6 +182,7 @@ export const VoiceChannelControls = React.memo(({
             onScreenShareToggle={handleScreenShareToggle}
             onDisconnect={handleLeave}
             onOpenTextChat={onOpenTextChat}
+            onSettingsClick={onOpenSettings}
             streamVolume={voiceState.streamVolume ?? 100}
             normalVolume={voiceState.normalVolume ?? 100}
             onStreamVolumeChange={handleStreamVolumeChange}

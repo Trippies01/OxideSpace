@@ -22,6 +22,8 @@ class LiveKitService {
     private remoteAudioElements = new Map<string, HTMLAudioElement>();
     private lastNormalVolume = 1;
     private lastStreamVolume = 1;
+    /** İsteğe bağlı: mikrofon stream'ini Krisp/RNNoise vb. ile filtrele (Discord seviyesi gürültü engelleme) */
+    private audioFilter: ((stream: MediaStream) => Promise<MediaStream>) | null = null;
 
     // Callbacks
     private onParticipantConnected?: (participant: RemoteParticipant) => void;
@@ -235,10 +237,15 @@ class LiveKitService {
                 const constraints: MediaStreamConstraints = {
                     audio: this.audioInputDevice ? { deviceId: { exact: this.audioInputDevice } } : true,
                 };
-                
-                const stream = await navigator.mediaDevices.getUserMedia(constraints);
+                let stream = await navigator.mediaDevices.getUserMedia(constraints);
+                if (this.audioFilter) {
+                    try {
+                        stream = await this.audioFilter(stream);
+                    } catch (err) {
+                        logger.error('Ses filtresi (Krisp/RNNoise) uygulanamadı, ham mikrofon kullanılıyor:', err);
+                    }
+                }
                 const audioTrack = stream.getAudioTracks()[0];
-                
                 if (audioTrack) {
                     audioTrack.enabled = true;
                     await this.room.localParticipant.publishTrack(audioTrack, {
@@ -395,6 +402,15 @@ class LiveKitService {
                 participant.setVolume(streamVolume, Track.Source.ScreenShareAudio);
             }
         });
+    }
+
+    /**
+     * İsteğe bağlı gürültü filtresi (Krisp, RNNoise vb.).
+     * Mikrofon açılırken ham stream bu fonksiyondan geçer; dönen stream yayınlanır.
+     * null verirsen filtre kapatılır.
+     */
+    setAudioFilter(fn: ((stream: MediaStream) => Promise<MediaStream>) | null): void {
+        this.audioFilter = fn;
     }
 
     /**

@@ -51,6 +51,7 @@ interface ChatAreaProps {
     attachmentName?: string;
     onAttachmentSelect?: (file: File) => void;
     onAttachmentClear?: () => void;
+    onOpenSettings?: () => void;
 }
 
 export const ChatArea = React.memo(({
@@ -90,7 +91,8 @@ export const ChatArea = React.memo(({
     attachmentPreviewUrl = null,
     attachmentName = '',
     onAttachmentSelect,
-    onAttachmentClear
+    onAttachmentClear,
+    onOpenSettings
 }: ChatAreaProps) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const emojiPanelRef = React.useRef<HTMLDivElement>(null);
@@ -209,6 +211,7 @@ export const ChatArea = React.memo(({
                                 setActiveChannelId(firstText.id);
                             }
                         }}
+                        onOpenSettings={onOpenSettings}
                     />
                 ) : (
                     <>

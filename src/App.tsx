@@ -457,6 +457,9 @@ export default function OxideApp() {
                 next.set(getKey(participant.identity, source), { track, source, muted: !!publication?.isMuted });
                 return next;
             });
+            if (source === Track.Source.ScreenShare && activeChannelId) {
+                fetchVoiceChannelUsers(activeChannelId);
+            }
         };
 
         const handleTrackUnsubscribed = (track: Track, publication: any, participant: any) => {
@@ -467,6 +470,9 @@ export default function OxideApp() {
                 next.delete(getKey(participant.identity, source));
                 return next;
             });
+            if (source === Track.Source.ScreenShare && activeChannelId) {
+                fetchVoiceChannelUsers(activeChannelId);
+            }
         };
 
         const handleTrackMuted = (publication: any, participant: any) => {
@@ -520,6 +526,11 @@ export default function OxideApp() {
             setLivekitSpeakingIds(new Set(speakers.map((p) => p.identity)));
         };
 
+        const onLocalTrackChanged = () => {
+            applyLocalVideo();
+            if (activeChannelId) fetchVoiceChannelUsers(activeChannelId);
+        };
+
         // Register all event handlers
         const events = [
             { event: 'trackSubscribed', handler: handleTrackSubscribed },
@@ -528,8 +539,8 @@ export default function OxideApp() {
             { event: 'activeSpeakersChanged', handler: handleActiveSpeakersChanged },
             { event: RoomEvent.TrackMuted, handler: handleTrackMuted },
             { event: RoomEvent.TrackUnmuted, handler: handleTrackUnmuted },
-            { event: 'localTrackPublished', handler: applyLocalVideo },
-            { event: 'localTrackUnpublished', handler: applyLocalVideo },
+            { event: 'localTrackPublished', handler: onLocalTrackChanged },
+            { event: 'localTrackUnpublished', handler: onLocalTrackChanged },
         ];
 
         events.forEach(({ event, handler }) => {
@@ -539,6 +550,7 @@ export default function OxideApp() {
 
         // Initial setup
         applyLocalVideo();
+        if (activeChannelId) fetchVoiceChannelUsers(activeChannelId);
         room.remoteParticipants.forEach((participant) => {
             participant.videoTrackPublications.forEach((publication: any) => {
                 if (publication.track && publication.track.kind === 'video' && isMounted) {
@@ -558,7 +570,7 @@ export default function OxideApp() {
                 room.off(event as any, handler);
             });
         };
-    }, [channelType]);
+    }, [channelType, activeChannelId, fetchVoiceChannelUsers]);
 
     useEffect(() => {
         if (!livekitFocusedKey) {
@@ -1983,6 +1995,7 @@ export default function OxideApp() {
                             attachmentName={pendingAttachment?.name ?? ''}
                             onAttachmentSelect={handleAttachmentSelect}
                             onAttachmentClear={handleAttachmentClear}
+                            onOpenSettings={() => setModals(m => ({ ...m, settings: true }))}
                         />
                     )}
                 </div>

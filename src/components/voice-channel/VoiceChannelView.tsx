@@ -58,6 +58,7 @@ export interface VoiceChannelViewProps {
   onScreenShareToggle: () => void;
   onDisconnect: () => void;
   onOpenTextChat?: () => void;
+  onSettingsClick?: () => void;
   /** Discord tarzı sağ tık ses menüsü */
   streamVolume?: number;
   normalVolume?: number;
@@ -283,6 +284,7 @@ export default function VoiceChannelView({
   onScreenShareToggle,
   onDisconnect,
   onOpenTextChat,
+  onSettingsClick,
   streamVolume = 100,
   normalVolume = 100,
   onStreamVolumeChange,
@@ -432,26 +434,52 @@ export default function VoiceChannelView({
           {focusedId && focusedUser ? (() => {
             const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
             const hasScreenAndCamera = focusedTracks.screenTrack && focusedTracks.cameraTrack;
+            const selfId = participants[0]?.id ?? null;
+            const isSelfSharingScreen = isScreenShareOn && focusedUser.id === selfId;
+            const showTwoContainers = hasScreenAndCamera || isSelfSharingScreen;
             return (
             <div className="flex-1 w-full h-full flex flex-col md:flex-row gap-3 md:gap-4 max-w-[1600px] mx-auto min-h-0">
-              {/* Ana alan: ekran paylaşımı varsa sadece ekran, yoksa mevcut UserTile (kamera veya ekran) */}
+              {/* Ana alan: ekran + kamera iki container veya tek UserTile */}
               <div className="flex-1 min-h-0 w-full relative flex flex-col md:flex-row gap-3 min-w-0">
-                {hasScreenAndCamera ? (
+                {showTwoContainers ? (
                   <>
-                    {/* Ekran ve kamera eşit boyut (50-50) */}
-                    <div className="flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10">
-                      <LivekitVideo track={focusedTracks.screenTrack!} muted={false} className="w-full h-full object-contain" />
-                      <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse z-10">
-                        <ScreenShare size={10} /> YAYINDA
-                      </div>
+                    {/* Sol: ekran paylaşımı (track varsa canlı, yoksa placeholder) */}
+                    <div className="flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10 flex items-center justify-center">
+                      {focusedTracks.screenTrack ? (
+                        <>
+                          <LivekitVideo track={focusedTracks.screenTrack} muted={false} className="w-full h-full object-contain" />
+                          <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse z-10">
+                            <ScreenShare size={10} /> YAYINDA
+                          </div>
+                        </>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-3 text-zinc-500">
+                          <ScreenShare size={48} className="opacity-50" />
+                          <span className="text-sm font-medium">Yayın başlatılıyor...</span>
+                        </div>
+                      )}
                     </div>
+                    {/* Sağ: kamera */}
                     <div className="flex-1 min-w-0 min-h-0 rounded-xl overflow-hidden bg-[#2b2d31] border border-white/10 flex flex-col">
                       <div className="flex-1 min-h-0 relative">
-                        <LivekitVideo track={focusedTracks.cameraTrack!} muted={focusedTracks.cameraMuted} className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-                        <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 z-10">
-                          <span className="text-sm font-medium text-white truncate drop-shadow-lg">{focusedUser.name}</span>
-                        </div>
+                        {focusedTracks.cameraTrack ? (
+                          <>
+                            <LivekitVideo track={focusedTracks.cameraTrack} muted={focusedTracks.cameraMuted} className="w-full h-full object-cover" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
+                            <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 z-10">
+                              <span className="text-sm font-medium text-white truncate drop-shadow-lg">{focusedUser.name}</span>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
+                            {focusedUser.avatar ? (
+                              <img src={focusedUser.avatar} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-white/10" />
+                            ) : (
+                              <Monitor size={40} className="opacity-50" />
+                            )}
+                            <span className="text-sm mt-2 truncate max-w-full px-4">{focusedUser.name}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </>
@@ -565,7 +593,7 @@ export default function VoiceChannelView({
               tooltip="Sohbeti Göster"
               className={isChatOpen ? 'text-white' : ''}
             />
-            <ControlBtn icon={<Settings size={20} />} active={false} onClick={() => {}} tooltip="Ayarlar" />
+            <ControlBtn icon={<Settings size={20} />} active={false} onClick={onSettingsClick ?? (() => {})} tooltip="Ayarlar" />
             <ControlBtn
               icon={focusedId ? <LayoutGrid size={20} /> : <Maximize2 size={20} />}
               active={false}
