@@ -92,11 +92,12 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
-/* Yayın tam ekran — kenar siyahlığı kalmaz, video tam dolar */
+/* Yayın tam ekran — sadece yayın, "Sen" paneli yok, siyah kalmaz */
 .video-stage:fullscreen,
 .video-stage:-webkit-full-screen,
 .video-stage:-moz-full-screen,
-.video-stage:-ms-fullscreen {
+.video-stage:-ms-fullscreen,
+.video-stage[data-fullscreen="true"] {
   background: #000 !important;
   display: flex !important;
   flex-direction: column !important;
@@ -111,7 +112,8 @@ button:focus-visible,
   overflow: hidden !important;
 }
 .video-stage:fullscreen > .video-stage-inner,
-.video-stage:-webkit-full-screen > .video-stage-inner {
+.video-stage:-webkit-full-screen > .video-stage-inner,
+.video-stage[data-fullscreen="true"] > .video-stage-inner {
   flex: 1 1 0 !important;
   min-height: 0 !important;
   min-width: 0 !important;
@@ -123,14 +125,27 @@ button:focus-visible,
   display: flex !important;
   flex-direction: column !important;
 }
+/* Tam ekranda "Sen" paneli ve kamera kutusu tamamen gizlenir (data-fullscreen + :fullscreen) */
 .video-stage:fullscreen .video-stage-sidebar,
 .video-stage:-webkit-full-screen .video-stage-sidebar,
 .video-stage:fullscreen .video-stage-camera-panel,
-.video-stage:-webkit-full-screen .video-stage-camera-panel {
+.video-stage:-webkit-full-screen .video-stage-camera-panel,
+.video-stage[data-fullscreen="true"] .video-stage-sidebar,
+.video-stage[data-fullscreen="true"] .video-stage-camera-panel {
   display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+  pointer-events: none !important;
 }
 .video-stage:fullscreen .video-stage-layout,
-.video-stage:-webkit-full-screen .video-stage-layout {
+.video-stage:-webkit-full-screen .video-stage-layout,
+.video-stage[data-fullscreen="true"] .video-stage-layout {
   flex: 1 1 0 !important;
   min-height: 0 !important;
   min-width: 0 !important;
@@ -143,7 +158,8 @@ button:focus-visible,
   overflow: hidden !important;
 }
 .video-stage:fullscreen .video-stage-main,
-.video-stage:-webkit-full-screen .video-stage-main {
+.video-stage:-webkit-full-screen .video-stage-main,
+.video-stage[data-fullscreen="true"] .video-stage-main {
   flex: 1 1 0 !important;
   min-height: 0 !important;
   min-width: 0 !important;
@@ -155,7 +171,8 @@ button:focus-visible,
   overflow: hidden !important;
 }
 .video-stage:fullscreen .video-stage-screen-wrap,
-.video-stage:-webkit-full-screen .video-stage-screen-wrap {
+.video-stage:-webkit-full-screen .video-stage-screen-wrap,
+.video-stage[data-fullscreen="true"] .video-stage-screen-wrap {
   position: relative !important;
   flex: 1 1 0 !important;
   min-width: 0 !important;
@@ -175,7 +192,9 @@ button:focus-visible,
 .video-stage:fullscreen .video-stage-screen-wrap video,
 .video-stage:-webkit-full-screen .video-stage-screen-wrap video,
 .video-stage:fullscreen .video-stage-main video,
-.video-stage:-webkit-full-screen .video-stage-main video {
+.video-stage:-webkit-full-screen .video-stage-main video,
+.video-stage[data-fullscreen="true"] .video-stage-screen-wrap video,
+.video-stage[data-fullscreen="true"] .video-stage-main video {
   object-fit: cover !important;
   position: absolute !important;
   top: 0 !important;

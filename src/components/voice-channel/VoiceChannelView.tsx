@@ -423,6 +423,7 @@ export default function VoiceChannelView({
         <div
           ref={stageRef}
           className="video-stage relative flex-1 w-full min-h-0 overflow-hidden p-4 md:p-6 flex flex-col bg-black"
+          data-fullscreen={isFullScreen ? 'true' : undefined}
         >
           {layoutMode === 'grid' || layoutMode === 'speaker' ? (
             <VideoGridLayout
