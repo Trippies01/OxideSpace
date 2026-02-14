@@ -285,10 +285,9 @@ class LiveKitService {
         try {
             if (enabled) {
                 const constraints: MediaStreamConstraints = {
-                    video: this.videoInputDevice ? { deviceId: { exact: this.videoInputDevice } } : {
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 },
-                    },
+                    video: this.videoInputDevice
+                        ? { deviceId: { exact: this.videoInputDevice }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+                        : { width: { ideal: 1920 }, height: { ideal: 1080 } },
                 };
                 
                 const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -331,7 +330,11 @@ class LiveKitService {
         try {
             if (enabled) {
                 const stream = await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
+                    video: {
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 },
+                        frameRate: { ideal: 30 },
+                    },
                     audio: true,
                 });
 

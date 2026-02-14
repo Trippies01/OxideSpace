@@ -195,26 +195,6 @@ function UserTile({ user, isFocused = false, isSmall = false, focusedId, onFocus
         </button>
       </div>
 
-      {/* Discord tarzı: Yayını izle / Yayını izlemeyi bırak */}
-      {user.screen && (
-        <div className={`absolute z-20 left-0 right-0 ${isSmall ? 'bottom-8' : 'bottom-12 md:bottom-14'} px-2 flex justify-center`}>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              onFocusToggle(focusedId === user.id ? null : user.id);
-            }}
-            className="px-3 py-1.5 rounded-md text-xs font-medium bg-[#5865f2] hover:bg-[#4752c4] text-white shadow-lg transition-colors flex items-center gap-1.5"
-          >
-            {focusedId === user.id ? (
-              <> <Minimize2 size={12} /> Yayını izlemeyi bırak </>
-            ) : (
-              <> <ScreenShare size={12} /> Yayını izle </>
-            )}
-          </button>
-        </div>
-      )}
-
       {user.talking && !user.muted && !user.camera && !user.screen && (
         <div className="absolute inset-0 rounded-xl border-2 border-[#23a559] opacity-100 transition-opacity pointer-events-none shadow-[inset_0_0_20px_rgba(35,165,89,0.2)] animate-pulse" />
       )}
@@ -450,27 +430,14 @@ export default function VoiceChannelView({
             />
           ) : (
           <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full">
-          {(isFullScreen || (focusedId && focusedUser?.screen)) && (
-            <div className="fixed top-4 right-4 z-[9999] flex items-center gap-2">
-              {focusedId && focusedUser?.screen && (
-                <button
-                  type="button"
-                  onClick={() => setFocusedId(null)}
-                  className="px-4 py-2 rounded-lg bg-[#5865f2] hover:bg-[#4752c4] text-white text-sm font-medium flex items-center gap-2 shadow-lg"
-                >
-                  <Minimize2 size={18} /> Yayını izlemeyi bırak
-                </button>
-              )}
-              {isFullScreen && (
-                <button
-                  type="button"
-                  onClick={toggleStageFullScreen}
-                  className="px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
-                >
-                  <Minimize size={18} /> Tam ekrandan çık
-                </button>
-              )}
-            </div>
+          {isFullScreen && (
+            <button
+              type="button"
+              onClick={toggleStageFullScreen}
+              className="fixed top-4 right-4 z-[9999] px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
+            >
+              <Minimize size={18} /> Tam ekrandan çık
+            </button>
           )}
           {focusedId && focusedUser ? (() => {
             const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
@@ -639,7 +606,7 @@ export default function VoiceChannelView({
               icon={focusedId ? <LayoutGrid size={20} /> : <Maximize2 size={20} />}
               active={false}
               onClick={() => setFocusedId(focusedId ? null : participants[0]?.id ?? null)}
-              tooltip={focusedId ? (focusedUser?.screen ? 'Yayını izlemeyi bırak' : 'Izgara Görünümü') : 'Yayını izle / Odaklan'}
+              tooltip={focusedId ? 'Izgara Görünümü' : 'Odaklan'}
             />
             <ControlBtn
               icon={isFullScreen ? <Minimize size={20} /> : <Maximize size={20} />}
