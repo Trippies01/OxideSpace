@@ -92,7 +92,7 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
-/* Yayın tam ekran — sadece yayın, "Sen" paneli yok, siyah kalmaz */
+/* Discord gibi: sadece sahne (yayın) fullscreen; tam ekranda sadece yayın + çık butonu (React ile katılımcı render edilmez) */
 .video-stage:fullscreen,
 .video-stage:-webkit-full-screen,
 .video-stage:-moz-full-screen,

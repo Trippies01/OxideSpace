@@ -308,7 +308,8 @@ export default function VoiceChannelView({
   useEffect(() => {
     const handleFullScreenChange = () => {
       const el = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-      const nowFull = !!el && el === stageRef.current;
+      const stageEl = stageRef.current;
+      const nowFull = !!el && !!stageEl && el === stageEl;
       if (isFullScreenRef.current !== nowFull) {
         isFullScreenRef.current = nowFull;
         setIsFullScreen(nowFull);
@@ -338,11 +339,11 @@ export default function VoiceChannelView({
   }, [onStreamVolumeChange, onNormalVolumeChange]);
 
   const toggleStageFullScreen = () => {
-    const el = stageRef.current;
-    if (!el) return;
+    const stageEl = stageRef.current;
+    if (!stageEl) return;
     const fsEl = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
     if (!fsEl) {
-      const htmlEl = el as HTMLElement;
+      const htmlEl = stageEl as HTMLElement;
       if (htmlEl.requestFullscreen) {
         htmlEl.requestFullscreen({ navigationUI: 'hide' }).catch((err: unknown) => console.error('Tam ekran hatası:', err));
       } else if ((htmlEl as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
@@ -401,7 +402,7 @@ export default function VoiceChannelView({
 
   return (
     <div className="flex h-full w-full min-h-0 bg-[#1e1f22] text-gray-100 font-sans overflow-hidden">
-      {/* === SOL / ORTA BÖLÜM (VİDEO ALANI) - sağ tık: ses ayarları === */}
+      {/* === SOL / ORTA BÖLÜM (VİDEO ALANI) === */}
       <div ref={voiceAreaRef} className="flex-1 flex flex-col relative bg-black transition-all duration-300 min-w-0">
         {/* Kanal Bilgisi + Layout toggle */}
         <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-2">
@@ -441,14 +442,14 @@ export default function VoiceChannelView({
             />
           ) : (
           <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full relative">
-          {/* Tam ekran overlay: normalde hidden; index.css ile tam ekranda gösterilir */}
-          <div className="video-stage-fullscreen-only hidden absolute inset-0 z-[9999] bg-black">
-            {(() => {
+          {/* Discord gibi: tam ekranda SADECE yayın + çık butonu; katılımcı/Sen paneli render edilmez */}
+          {isFullScreen ? (
+            (() => {
               const who = focusedId && focusedUser ? getTracksForParticipant(videoTracks, focusedUser.id) : null;
               const screenTrack = who?.screenTrack;
               return (
                 <>
-                  <div className="absolute inset-0 w-full h-full">
+                  <div className="absolute inset-0 w-full h-full bg-black">
                     {screenTrack && <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-cover" />}
                   </div>
                   <button
@@ -460,10 +461,9 @@ export default function VoiceChannelView({
                   </button>
                 </>
               );
-            })()}
-          </div>
-          {/* Normal layout: tam ekranda index.css ile gizlenir */}
-          <div className="video-stage-layout-wrap flex-1 flex flex-col min-h-0 w-full">
+            })()
+          ) : (
+          <>
           {focusedId && focusedUser ? (() => {
             const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
             const hasScreenAndCamera = focusedTracks.screenTrack && focusedTracks.cameraTrack;
@@ -587,7 +587,8 @@ export default function VoiceChannelView({
               </div>
             </div>
           )}
-          </div>
+          </>
+          )}
           </div>
           )}
         </div>
