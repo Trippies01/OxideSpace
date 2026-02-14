@@ -18,7 +18,11 @@ class LiveKitService {
     private localStream: MediaStream | null = null;
     private audioInputDevice: string | null = null;
     private videoInputDevice: string | null = null;
-    
+    /** Uzak katılımcıların ses track'leri için audio element'ler (oynatma için gerekli) */
+    private remoteAudioElements = new Map<string, HTMLAudioElement>();
+    private lastNormalVolume = 1;
+    private lastStreamVolume = 1;
+
     // Callbacks
     private onParticipantConnected?: (participant: RemoteParticipant) => void;
     private onParticipantDisconnected?: (participant: RemoteParticipant) => void;
@@ -136,6 +140,10 @@ class LiveKitService {
         if (!this.room) return;
 
         try {
+            // Uzak ses element'lerini temizle
+            this.remoteAudioElements.forEach((el) => el.remove());
+            this.remoteAudioElements.clear();
+
             // Tüm track'leri durdur
             this.room.localParticipant.trackPublications.forEach((publication) => {
                 if (publication.track) {
@@ -232,8 +240,10 @@ class LiveKitService {
                 const audioTrack = stream.getAudioTracks()[0];
                 
                 if (audioTrack) {
+                    audioTrack.enabled = true;
                     await this.room.localParticipant.publishTrack(audioTrack, {
                         source: Track.Source.Microphone,
+                        dtx: true,
                     });
                     this.localStream = stream;
                 }
@@ -376,6 +386,8 @@ class LiveKitService {
      * @param streamVolume 0-1, ekran paylaşımı sesi
      */
     setRemoteVolumes(normalVolume: number, streamVolume: number): void {
+        this.lastNormalVolume = normalVolume;
+        this.lastStreamVolume = streamVolume;
         if (!this.room) return;
         this.room.remoteParticipants.forEach((participant) => {
             if (typeof participant.setVolume === 'function') {
@@ -452,6 +464,12 @@ class LiveKitService {
 
         room.on(RoomEvent.ParticipantDisconnected, (participant: RemoteParticipant) => {
             devLog('Katılımcı ayrıldı:', participant.identity);
+            this.remoteAudioElements.forEach((el, key) => {
+                if (key.startsWith(`${participant.identity}:`)) {
+                    el.remove();
+                    this.remoteAudioElements.delete(key);
+                }
+            });
             if (this.onParticipantDisconnected) {
                 this.onParticipantDisconnected(participant);
             }
@@ -459,6 +477,20 @@ class LiveKitService {
 
         room.on(RoomEvent.TrackSubscribed, (track: Track, publication: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
             devLog('Track abone olundu:', track.kind, participant.identity);
+            // Uzak mikrofon/yayın sesi: audio track'ı bir element'e bağla ki karşı taraf duyabilsin
+            if (track.kind === 'audio' && participant instanceof RemoteParticipant) {
+                const key = `${participant.identity}:${publication.source}`;
+                if (!this.remoteAudioElements.has(key)) {
+                    const el = document.createElement('audio');
+                    el.autoplay = true;
+                    el.setAttribute('data-livekit-remote', key);
+                    track.attach(el);
+                    this.remoteAudioElements.set(key, el);
+                    document.body.appendChild(el);
+                    const vol = publication.source === Track.Source.ScreenShareAudio ? this.lastStreamVolume : this.lastNormalVolume;
+                    participant.setVolume(vol, publication.source as Track.Source);
+                }
+            }
             if (this.onTrackSubscribed) {
                 this.onTrackSubscribed(track, publication, participant);
             }
@@ -466,6 +498,15 @@ class LiveKitService {
 
         room.on(RoomEvent.TrackUnsubscribed, (track: Track, publication: TrackPublication, participant: RemoteParticipant | LocalParticipant) => {
             devLog('Track abonelik iptal edildi:', track.kind, participant.identity);
+            if (track.kind === 'audio' && participant instanceof RemoteParticipant) {
+                const key = `${participant.identity}:${publication.source}`;
+                const el = this.remoteAudioElements.get(key);
+                if (el) {
+                    track.detach(el);
+                    el.remove();
+                    this.remoteAudioElements.delete(key);
+                }
+            }
             if (this.onTrackUnsubscribed) {
                 this.onTrackUnsubscribed(track, publication, participant);
             }
