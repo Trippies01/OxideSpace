@@ -1,0 +1,36 @@
+# Bağımlılıklar
+node_modules/
+
+# Build çıktısı (Vercel kendi build alır)
+dist/
+dist-ssr/
+
+# Ortam / gizli dosyalar (asla repo'ya ekleme)
+.env
+.env.local
+.env.*.local
+
+# Tauri
+src-tauri/target/
+
+# IDE / OS
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.DS_Store
+Thumbs.db
+
+# Log / cache
+*.log
+npm-debug.log*
+.cache/
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/

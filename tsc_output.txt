@@ -1,0 +1,119 @@
+src/App.tsx(3,8): error TS6133: 'React' is declared but its value is never read.
+src/App.tsx(6,26): error TS6133: 'Users' is declared but its value is never read.
+src/App.tsx(7,5): error TS6133: 'UserPlus' is declared but its value is never read.
+src/App.tsx(8,5): error TS6133: 'MoreHorizontal' is declared but its value is never read.
+src/App.tsx(8,28): error TS6133: 'Globe' is declared but its value is never read.
+src/App.tsx(9,31): error TS6133: 'Palette' is declared but its value is never read.
+src/App.tsx(9,62): error TS6133: 'Edit3' is declared but its value is never read.
+src/App.tsx(10,51): error TS6133: 'Laptop' is declared but its value is never read.
+src/App.tsx(11,22): error TS6133: 'Key' is declared but its value is never read.
+src/App.tsx(12,49): error TS6133: 'Crown' is declared but its value is never read.
+src/App.tsx(12,56): error TS6133: 'UserMinus' is declared but its value is never read.
+src/App.tsx(78,22): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/App.tsx(84,19): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/App.tsx(84,29): error TS7031: Binding element 'primary' implicitly has an 'any' type.
+src/App.tsx(84,38): error TS7031: Binding element 'danger' implicitly has an 'any' type.
+src/App.tsx(84,46): error TS7031: Binding element 'success' implicitly has an 'any' type.
+src/App.tsx(84,55): error TS7031: Binding element 'onClick' implicitly has an 'any' type.
+src/App.tsx(84,80): error TS7031: Binding element 'disabled' implicitly has an 'any' type.
+src/App.tsx(84,96): error TS7031: Binding element 'Icon' implicitly has an 'any' type.
+src/App.tsx(103,19): error TS7031: Binding element 'src' implicitly has an 'any' type.
+src/App.tsx(103,37): error TS7031: Binding element 'status' implicitly has an 'any' type.
+src/App.tsx(103,61): error TS7031: Binding element 'onClick' implicitly has an 'any' type.
+src/App.tsx(108,55): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ sm: string; md: string; lg: string; xl: string; xxl: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ sm: string; md: string; lg: string; xl: string; xxl: string; }'.
+src/App.tsx(111,76): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ online: string; idle: string; dnd: string; invisible: string; }'.
+src/App.tsx(117,18): error TS7031: Binding element 'message' implicitly has an 'any' type.
+src/App.tsx(117,27): error TS7031: Binding element 'type' implicitly has an 'any' type.
+src/App.tsx(117,33): error TS7031: Binding element 'onClose' implicitly has an 'any' type.
+src/App.tsx(125,18): error TS7031: Binding element 'type' implicitly has an 'any' type.
+src/App.tsx(133,14): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ developer: Element; 'early-supporter': Element; booster: Element; }'.
+src/App.tsx(138,23): error TS7031: Binding element 'className' implicitly has an 'any' type.
+src/App.tsx(138,34): error TS7031: Binding element 'size' implicitly has an 'any' type.
+src/App.tsx(144,18): error TS7031: Binding element 'isOpen' implicitly has an 'any' type.
+src/App.tsx(144,26): error TS7031: Binding element 'onClose' implicitly has an 'any' type.
+src/App.tsx(144,35): error TS7031: Binding element 'title' implicitly has an 'any' type.
+src/App.tsx(144,42): error TS7031: Binding element 'children' implicitly has an 'any' type.
+src/App.tsx(178,27): error TS6133: 'setNotifications' is declared but its value is never read.
+src/App.tsx(229,28): error TS2339: Property 'scrollIntoView' does not exist on type 'never'.
+src/App.tsx(233,13): error TS7034: Variable 'interval' implicitly has type 'any' in some locations where its type cannot be determined.
+src/App.tsx(239,36): error TS7005: Variable 'interval' implicitly has an 'any' type.
+src/App.tsx(244,23): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/App.tsx(246,19): error TS2345: Argument of type '(prev: never[]) => { id: number; msg: any; type: string; }[]' is not assignable to parameter of type 'SetStateAction<never[]>'.
+  Type '(prev: never[]) => { id: number; msg: any; type: string; }[]' is not assignable to type '(prevState: never[]) => never[]'.
+    Type '{ id: number; msg: any; type: string; }[]' is not assignable to type 'never[]'.
+      Type '{ id: number; msg: any; type: string; }' is not assignable to type 'never'.
+src/App.tsx(248,50): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(252,33): error TS7006: Parameter 'serverId' implicitly has an 'any' type.
+src/App.tsx(262,36): error TS2345: Argument of type 'null' is not assignable to parameter of type 'SetStateAction<string>'.
+src/App.tsx(266,37): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ s1: { id: string; name: string; type: string; category: string; }[]; s2: { id: string; name: string; type: string; category: string; }[]; s3: { id: string; name: string; type: string; category: string; }[]; }'.
+src/App.tsx(272,40): error TS2345: Argument of type 'null' is not assignable to parameter of type 'SetStateAction<string>'.
+src/App.tsx(279,29): error TS7006: Parameter 'friend' implicitly has an 'any' type.
+src/App.tsx(290,32): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/App.tsx(305,34): error TS7006: Parameter 'msgId' implicitly has an 'any' type.
+src/App.tsx(318,64): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ s1: { id: string; name: string; type: string; category: string; }[]; s2: { id: string; name: string; type: string; category: string; }[]; s3: { id: string; name: string; type: string; category: string; }[]; }'.
+  No index signature with a parameter of type 'string' was found on type '{ s1: { id: string; name: string; type: string; category: string; }[]; s2: { id: string; name: string; type: string; category: string; }[]; s3: { id: string; name: string; type: string; category: string; }[]; }'.
+src/App.tsx(336,20): error TS2345: Argument of type '(prev: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | ... 1 more ... | { ...; })[]' is not assignable to parameter of type 'SetStateAction<({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]>'.
+  Type '(prev: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | ... 1 more ... | { ...; })[]' is not assignable to type '(prevState: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | { ...; })[]'.
+    Type '({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; } | { id: string; ... 4 more ...; ownerId: string; })[]' is not assignable to type '({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]'.
+      Type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; } | { id: string; ... 4 more ...; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+        Type '{ id: string; name: string; icon: string; color: string; type: string; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+          Type '{ id: string; name: string; icon: string; color: string; type: string; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+            Types of property 'type' are incompatible.
+              Type 'string' is not assignable to type 'undefined'.
+src/App.tsx(360,20): error TS2345: Argument of type '(prev: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | ... 1 more ... | { ...; })[]' is not assignable to parameter of type 'SetStateAction<({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]>'.
+  Type '(prev: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | ... 1 more ... | { ...; })[]' is not assignable to type '(prevState: ({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]) => ({ ...; } | { ...; })[]'.
+    Type '({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; } | { id: string; ... 4 more ...; ownerId: string; })[]' is not assignable to type '({ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; })[]'.
+      Type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; } | { id: string; ... 4 more ...; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+        Type '{ id: string; name: string; icon: string; color: string; type: string; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: null; type: string; color?: undefined; ownerId?: undefined; } | { id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+          Type '{ id: string; name: string; icon: string; color: string; type: string; ownerId: string; }' is not assignable to type '{ id: string; name: string; icon: string; color: string; ownerId: string; type?: undefined; }'.
+            Types of property 'type' are incompatible.
+              Type 'string' is not assignable to type 'undefined'.
+src/App.tsx(394,33): error TS7006: Parameter 'newStatus' implicitly has an 'any' type.
+src/App.tsx(402,28): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ s1: { id: string; name: string; type: string; category: string; }[]; s2: { id: string; name: string; type: string; category: string; }[]; s3: { id: string; name: string; type: string; category: string; }[]; }'.
+  No index signature with a parameter of type 'string' was found on type '{ s1: { id: string; name: string; type: string; category: string; }[]; s2: { id: string; name: string; type: string; category: string; }[]; s3: { id: string; name: string; type: string; category: string; }[]; }'.
+src/App.tsx(404,52): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/App.tsx(407,49): error TS7006: Parameter 'acc' implicitly has an 'any' type.
+src/App.tsx(407,54): error TS7006: Parameter 'ch' implicitly has an 'any' type.
+src/App.tsx(428,22): error TS2739: Type '{ children: string; primary: true; className: string; onClick: () => void; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': danger, success, disabled, icon
+src/App.tsx(441,33): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(442,43): error TS2339: Property 'msg' does not exist on type 'never'.
+src/App.tsx(442,56): error TS2339: Property 'type' does not exist on type 'never'.
+src/App.tsx(442,114): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(442,123): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(480,42): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/App.tsx(551,26): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(577,38): error TS2739: Type '{ children: string; onClick: () => void; className: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, disabled, icon
+src/App.tsx(586,42): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(588,46): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(591,133): error TS2339: Property 'id' does not exist on type 'never'.
+src/App.tsx(623,54): error TS18046: 'chans' is of type 'unknown'.
+src/App.tsx(623,64): error TS7006: Parameter 'channel' implicitly has an 'any' type.
+src/App.tsx(648,34): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(690,38): error TS2739: Type '{ children: string; success: true; onClick: () => void; disabled: boolean; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, icon
+src/App.tsx(698,54): error TS2739: Type '{ src: string; size: string; }' is missing the following properties from type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }': status, onClick
+src/App.tsx(701,50): error TS2739: Type '{ children: string; onClick: () => void; className: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, disabled, icon
+src/App.tsx(716,105): error TS2339: Property 'name' does not exist on type 'never'.
+src/App.tsx(722,70): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/App.tsx(727,115): error TS7006: Parameter 'c' implicitly has an 'any' type.
+src/App.tsx(768,89): error TS2345: Argument of type 'null' is not assignable to parameter of type 'SetStateAction<string>'.
+src/App.tsx(790,76): error TS2739: Type '{ src: string; size: string; }' is missing the following properties from type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }': status, onClick
+src/App.tsx(844,38): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(907,22): error TS2739: Type '{ children: string; primary: true; className: string; onClick: () => void; disabled: boolean; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': danger, success, icon
+src/App.tsx(925,22): error TS2739: Type '{ children: string; success: true; className: string; onClick: () => void; disabled: boolean; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, icon
+src/App.tsx(934,34): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/App.tsx(946,30): error TS2740: Type '{ children: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, onClick, and 2 more.
+src/App.tsx(959,30): error TS2739: Type '{ children: string; danger: true; className: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, success, onClick, disabled, icon
+src/App.tsx(1004,26): error TS2739: Type '{ children: string; onClick: () => void; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, disabled, icon
+src/App.tsx(1005,26): error TS2739: Type '{ children: string; primary: true; onClick: () => void; disabled: boolean; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': danger, success, icon
+src/App.tsx(1011,14): error TS2741: Property 'title' is missing in type '{ children: Element; isOpen: boolean; onClose: () => void; }' but required in type '{ isOpen: any; onClose: any; title: any; children: any; }'.
+src/App.tsx(1022,30): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; className: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(1056,30): error TS2739: Type '{ children: string; onClick: () => void; className: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, disabled, icon
+src/App.tsx(1222,50): error TS2741: Property 'onClick' is missing in type '{ src: string; size: string; status: string; className: string; }' but required in type '{ src: any; size?: string | undefined; status: any; className?: string | undefined; onClick: any; }'.
+src/App.tsx(1228,46): error TS2739: Type '{ children: string; primary: true; onClick: () => void; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': danger, success, disabled, icon
+src/App.tsx(1233,50): error TS2740: Type '{ children: string; className: string; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, onClick, and 2 more.
+src/App.tsx(1276,50): error TS2739: Type '{ children: string; className: string; icon: LucideIcon; onClick: () => void; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, disabled
+src/App.tsx(1279,50): error TS2739: Type '{ children: string; className: string; icon: LucideIcon; }' is missing the following properties from type '{ children: any; primary: any; danger: any; success: any; onClick: any; className?: string | undefined; disabled: any; icon: any; }': primary, danger, success, onClick, disabled
+src/App.tsx(1319,29): error TS7031: Binding element 'className' implicitly has an 'any' type.

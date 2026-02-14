@@ -1,0 +1,275 @@
+import React, { useState } from 'react';
+import { Plus, Settings, ChevronDown, FolderPlus, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { DndContext, closestCenter } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { livekitService } from '../lib/livekit';
+import type { Server, Channel, User } from '../types';
+import { GlassCard } from './ui/GlassCard';
+import { Button } from './ui/Button';
+import { Avatar } from './ui/Avatar';
+import { SortableChannelItem } from './SortableChannelItem';
+import { normalizeStatus } from '../utils/helpers';
+import { logger } from '../utils/logger';
+
+interface SidebarProps {
+    activeServerId: string | null;
+    handleDmSelect: (friend: any) => void;
+    handleDragEnd: (event: any) => void;
+    filteredFriends: any[];
+    activeDmUser: { id: string; name: string; status: string; avatar: string; lastMsg?: string; threadId?: string } | null;
+    setShowAddFriend: (show: boolean) => void;
+    currentServer: Server;
+    categories: { [key: string]: Channel[] };
+    serverChannels: Channel[];
+    activeChannelId: string | null;
+    setActiveChannelId: (id: string | null) => void;
+    setChannelType: (type: string) => void;
+    connectedVoiceChannelId: string | null;
+    setConnectedVoiceChannelId: (id: string | null) => void;
+    setLastTextChannelIdForServer?: (serverId: string, channelId: string) => void;
+    setMobileMenuOpen: (open: boolean) => void;
+    setModals: React.Dispatch<React.SetStateAction<any>>;
+    setNewChannelCategory: (category: string) => void;
+    sensors: any;
+    user: User;
+    authUser: any;
+    addToast: (msg: string, type?: 'success' | 'error' | 'info') => void;
+    fetchVoiceChannelUsers: (channelId: string) => void;
+    setVoiceChannelUsers: React.Dispatch<React.SetStateAction<any[]>>;
+    onDeleteChannel: (channelId: string) => void;
+    onlineUserIds?: Set<string>;
+}
+
+export const Sidebar = React.memo(({
+    activeServerId,
+    handleDmSelect,
+    handleDragEnd,
+    filteredFriends,
+    activeDmUser,
+    setShowAddFriend,
+    currentServer,
+    categories,
+    serverChannels,
+    activeChannelId,
+    setActiveChannelId,
+    setChannelType,
+    connectedVoiceChannelId,
+    setConnectedVoiceChannelId,
+    setLastTextChannelIdForServer,
+    setMobileMenuOpen,
+    setModals,
+    setNewChannelCategory,
+    sensors,
+    user,
+    authUser,
+    addToast,
+    fetchVoiceChannelUsers,
+    setVoiceChannelUsers,
+    onDeleteChannel,
+    onlineUserIds = new Set()
+}: SidebarProps) => {
+    return (
+        <GlassCard className="h-full flex flex-col rounded-none md:rounded-3xl overflow-hidden border-y-0 md:border-y border-l-0 md:border-l">
+            {activeServerId === 'dm' ? (
+                <div className="p-4 flex flex-col h-full">
+                    <div className="flex items-center justify-between mb-6 px-2">
+                        <h2 className="text-xl font-bold">Mesajlar</h2>
+                        <Button onClick={() => setShowAddFriend(true)} className="h-8 px-3 py-0 bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/30 text-xs">Arkadaş Ekle</Button>
+                    </div>
+
+                    <div className="space-y-1 overflow-y-auto pr-1 flex-1 custom-scrollbar">
+                        {filteredFriends.length === 0 ? <p className="text-zinc-500 text-center text-sm mt-4">Kimse bulunamadı.</p> : filteredFriends.map((friend: any) => (
+                            <div
+                                key={friend.id}
+                                onClick={() => handleDmSelect(friend)}
+                                className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors group
+             ${activeDmUser?.id === friend.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                            >
+                                <Avatar src={friend.avatar} size="sm" status={onlineUserIds.has(friend.id) ? 'online' : normalizeStatus(friend.status)} onClick={undefined} />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex justify-between items-center">
+                                        <div className={`text-sm font-medium transition-colors truncate ${activeDmUser?.id === friend.id ? 'text-white' : 'text-zinc-300'}`}>{friend.name}</div>
+                                    </div>
+                                    <div className="text-xs text-zinc-500 truncate group-hover:text-zinc-400">{friend.lastMsg}</div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <>
+                    <div className="h-16 flex items-center justify-between px-6 border-b border-white/5 flex-shrink-0">
+                        <div
+                            className="font-bold text-lg tracking-wide truncate cursor-pointer hover:text-zinc-300 transition-colors"
+                            onClick={() => setModals((m: any) => ({ ...m, serverSettings: true }))}
+                        >
+                            {currentServer.name}
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <button
+                                onClick={() => setModals((m: any) => ({ ...m, createCategory: true }))}
+                                className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                title="Kategori Ekle"
+                            >
+                                <FolderPlus size={18} />
+                            </button>
+                            <button
+                                onClick={() => { setNewChannelCategory('GENEL'); setModals((m: any) => ({ ...m, addChannel: true })); }}
+                                className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                                title="Kanal Ekle"
+                            >
+                                <Plus size={20} />
+                            </button>
+                            <button
+                                onClick={() => setModals((m: any) => ({ ...m, serverSettings: true }))}
+                                className="p-2 text-zinc-500 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+                            >
+                                {currentServer.ownerId === user.id ? <Settings size={18} /> : <ChevronDown size={18} />}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar">
+                        {Object.keys(categories).length === 0 ? <p className="text-zinc-500 text-center text-sm mt-10">Kanal bulunamadı.</p> :
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleDragEnd}
+                            >
+                                <SortableContext
+                                    items={serverChannels.map((c: any) => c.id)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    {Object.entries(categories).map(([cat, chans]: any) => (
+                                        <div key={cat}>
+                                            <div className="flex items-center justify-between px-3 mb-2 group cursor-pointer mt-4 first:mt-0">
+                                                <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{cat}</span>
+                                                <Plus size={14} onClick={(e) => { e.stopPropagation(); setNewChannelCategory(cat); setModals((m: any) => ({ ...m, addChannel: true })); }} className="text-zinc-500 opacity-0 group-hover:opacity-100 hover:text-orange-400 transition-all" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                {chans.map((channel: any) => (
+                                                    <SortableChannelItem
+                                                        key={channel.id}
+                                                        channel={channel}
+                                                        isActive={channel.type === 'voice' ? (activeChannelId === channel.id || connectedVoiceChannelId === channel.id) : (activeChannelId === channel.id)}
+                                                        onDelete={onDeleteChannel}
+                                                        currentUser={user}
+                                                        currentServer={currentServer}
+                                                        onClick={(event: React.MouseEvent) => {
+                                                            event.preventDefault();
+                                                            event.stopPropagation();
+                                                            setMobileMenuOpen(false);
+
+                                                            if (channel.type === 'text') {
+                                                                setActiveChannelId(channel.id);
+                                                                setChannelType('text');
+                                                                if (activeServerId && setLastTextChannelIdForServer) setLastTextChannelIdForServer(activeServerId, channel.id);
+                                                                return;
+                                                            }
+
+                                                            if (channel.type !== 'voice' || !authUser?.id) return;
+
+                                                            const userName = user.username || authUser.email || 'User';
+
+                                                            if (connectedVoiceChannelId === channel.id) {
+                                                                if (activeChannelId === channel.id) {
+                                                                    livekitService.leaveRoom().then(() => {
+                                                                        setConnectedVoiceChannelId(null);
+                                                                        setActiveChannelId(null);
+                                                                        setChannelType('text');
+                                                                        setVoiceChannelUsers([]);
+                                                                        addToast('Ses kanalından ayrıldın.', 'info');
+                                                                    }).catch((err: any) => {
+                                                                        logger.error('Voice leave error:', err);
+                                                                        addToast('Ses kanalından ayrılırken hata oluştu', 'error');
+                                                                    });
+                                                                } else {
+                                                                    setActiveChannelId(channel.id);
+                                                                    setChannelType('voice');
+                                                                }
+                                                                return;
+                                                            }
+
+                                                            if (connectedVoiceChannelId) {
+                                                                livekitService.leaveRoom().then(() => {
+                                                                    livekitService.joinRoom(channel.id, authUser.id, userName)
+                                                                        .then(() => {
+                                                                            setConnectedVoiceChannelId(channel.id);
+                                                                            setActiveChannelId(channel.id);
+                                                                            setChannelType('voice');
+                                                                            fetchVoiceChannelUsers(channel.id);
+                                                                            addToast(`${channel.name} ses kanalına katıldın.`, 'success');
+                                                                        })
+                                                                        .catch((err: any) => {
+                                                                            logger.error('Voice join error:', err);
+                                                                            addToast('Ses kanalına katılamadı: ' + (err?.message || 'Bilinmeyen hata'), 'error');
+                                                                        });
+                                                                });
+                                                            } else {
+                                                                livekitService.joinRoom(channel.id, authUser.id, userName)
+                                                                    .then(() => {
+                                                                        setConnectedVoiceChannelId(channel.id);
+                                                                        setActiveChannelId(channel.id);
+                                                                        setChannelType('voice');
+                                                                        fetchVoiceChannelUsers(channel.id);
+                                                                        addToast(`${channel.name} ses kanalına katıldın.`, 'success');
+                                                                    })
+                                                                    .catch((err: any) => {
+                                                                        logger.error('Voice join error:', err);
+                                                                        addToast('Ses kanalına katılamadı: ' + (err?.message || 'Bilinmeyen hata'), 'error');
+                                                                    });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {/* Voice Users - Basitleştirilmiş */}
+                                                        {channel.type === 'voice' && (channel.id === activeChannelId || channel.id === connectedVoiceChannelId) && (
+                                                            <div className="pl-8 pb-2">
+                                                                <div className="flex items-center gap-2 px-2 py-1 bg-white/5 rounded-lg border border-white/5 mx-1">
+                                                                    <Avatar src={user.avatar} size="sm" className="w-5 h-5" status={undefined} onClick={undefined} />
+                                                                    <span className="text-xs font-bold text-white truncate">{user.username}</span>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </SortableChannelItem>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </SortableContext>
+                            </DndContext>
+                        }
+                    </div>
+                </>
+            )}
+
+            {/* User Mini Bar */}
+            <UserMiniBar user={user} setModals={setModals} />
+        </GlassCard>
+    );
+});
+Sidebar.displayName = 'Sidebar';
+
+const UserMiniBar = React.memo(({ user, setModals }: { user: User; setModals: React.Dispatch<React.SetStateAction<any>> }) => {
+    const [voiceState, setVoiceState] = useState({ mic: true, deafen: false });
+
+    return (
+        <div className="p-4 border-t border-white/5 bg-black/20 flex-shrink-0 flex items-center justify-between">
+            <div className="flex items-center gap-2 cursor-pointer hover:opacity-80" onClick={() => setModals((m: any) => ({ ...m, profile: true }))}>
+                <Avatar src={user.avatar} size="sm" status={normalizeStatus(user.status)} onClick={undefined} />
+                <div className="text-xs">
+                    <div className="font-bold text-white">{user.username}</div>
+                    <div className="text-zinc-500">{user.discriminator}</div>
+                </div>
+            </div>
+            <div className="flex gap-1">
+                <button onClick={() => setVoiceState(p => ({ ...p, mic: !p.mic }))} className={`p-1.5 rounded-lg ${!voiceState.mic ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`}>
+                    {!voiceState.mic ? <MicOff size={16} /> : <Mic size={16} />}
+                </button>
+                <button onClick={() => setVoiceState(p => ({ ...p, deafen: !p.deafen }))} className={`p-1.5 rounded-lg ${voiceState.deafen ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`}>
+                    {voiceState.deafen ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+            </div>
+        </div>
+    );
+});
+UserMiniBar.displayName = 'UserMiniBar';

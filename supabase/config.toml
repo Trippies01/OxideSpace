@@ -1,0 +1,15 @@
+# Supabase Configuration
+# Bu dosya Supabase CLI tarafından kullanılır
+
+[project]
+# Proje ID'nizi buraya ekleyin (Supabase Dashboard'dan alabilirsiniz)
+
+[functions]
+# Edge Functions yapılandırması
+
+[functions.livekit-token]
+# LiveKit token function yapılandırması
+verify_jwt = false  # JWT doğrulamasını kapat (gerekirse açabilirsiniz)
+
+
+

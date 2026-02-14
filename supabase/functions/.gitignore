@@ -1,0 +1,6 @@
+# Supabase Functions
+node_modules/
+*.log
+
+
+

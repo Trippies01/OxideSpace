@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --focus-ring: 0 0 0 2px rgba(249, 115, 22, 0.5);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Performance optimizations */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus visible - klavye erişilebilirliği, fare tıklamada çerçeve yok */
+:focus {
+  outline: none;
+}
+:focus-visible {
+  outline: 2px solid rgba(249, 115, 22, 0.6);
+  outline-offset: 2px;
+}
+
+/* GPU acceleration for transforms */
+.transform-gpu {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Optimize animations */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Reduce motion for better performance */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Custom scrollbar - lightweight */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Firefox scrollbar */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+/* Input/button focus tutarlılığı */
+input:focus-visible,
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid rgba(249, 115, 22, 0.5);
+  outline-offset: 2px;
+}
+
+/* Yayın alanı tam ekran — sadece video/sahne alanı tam ekran olur */
+.video-stage:fullscreen,
+.video-stage:-webkit-full-screen,
+.video-stage:-moz-full-screen,
+.video-stage:-ms-fullscreen {
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 1.5rem;
+}
+.video-stage:fullscreen > div,
+.video-stage:-webkit-full-screen > div {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.video-stage:fullscreen .aspect-video,
+.video-stage:-webkit-full-screen .aspect-video {
+  flex: 1;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+.video-stage:fullscreen video,
+.video-stage:-webkit-full-screen video {
+  object-fit: contain;
+}
