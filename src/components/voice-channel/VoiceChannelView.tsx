@@ -340,11 +340,16 @@ export default function VoiceChannelView({
   const toggleStageFullScreen = () => {
     const el = stageRef.current;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      const req = el.requestFullscreen ?? (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen;
-      if (req) req.call(el).catch((err: unknown) => console.error('Tam ekran hatası:', err));
+    const fsEl = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+    if (!fsEl) {
+      const htmlEl = el as HTMLElement;
+      if (htmlEl.requestFullscreen) {
+        htmlEl.requestFullscreen({ navigationUI: 'hide' }).catch((err: unknown) => console.error('Tam ekran hatası:', err));
+      } else if ((htmlEl as HTMLElement & { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
+        (htmlEl as HTMLElement & { webkitRequestFullscreen: () => void }).webkitRequestFullscreen();
+      }
     } else {
-      const exit = document.exitFullscreen ?? (document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen;
+      const exit = document.exitFullscreen ?? (document as Document & { webkitExitFullscreen?: () => void }).webkitExitFullscreen;
       if (exit) exit.call(document);
     }
   };
@@ -451,19 +456,31 @@ export default function VoiceChannelView({
             const selfId = participants[0]?.id ?? null;
             const isSelfSharingScreen = isScreenShareOn && focusedUser.id === selfId;
             const showTwoContainers = hasScreenAndCamera || isSelfSharingScreen;
+            /* Meet gibi yan panel yok: yayın varken sadece yayın, sidebar ve kamera kutusu gösterilmez */
+            const streamOnly = showTwoContainers;
             return (
             <div className="video-stage-layout flex-1 w-full h-full flex flex-col md:flex-row gap-3 md:gap-4 max-w-[1600px] mx-auto min-h-0">
-              {/* Ana alan: ekran + kamera iki container veya tek UserTile */}
+              {/* Ana alan: sadece yayın veya ekran+kamera veya tek kullanıcı */}
               <div className="video-stage-main flex-1 min-h-0 w-full relative flex flex-col md:flex-row gap-3 min-w-0">
                 {showTwoContainers ? (
                   <>
-                    {/* Sol: ekran paylaşımı (tam ekranda tüm alanı kaplar) */}
+                    {/* Yayın — tek başına (yanında Sen/kamera paneli yok) */}
                     <div className="video-stage-screen-wrap flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10 flex items-center justify-center">
                       {focusedTracks.screenTrack ? (
                         <>
                           <LivekitVideo track={focusedTracks.screenTrack} muted={false} className="w-full h-full object-contain" />
-                          <div className="absolute top-2 right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse z-10">
-                            <ScreenShare size={10} /> YAYINDA
+                          <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+                            <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse">
+                              <ScreenShare size={10} /> YAYINDA
+                            </div>
+                            <button
+                              type="button"
+                              onClick={toggleStageFullScreen}
+                              className="p-2 rounded bg-black/60 hover:bg-black/80 text-white transition-colors"
+                              title={isFullScreen ? 'Tam ekrandan çık' : 'Tam ekran (Discord gibi)'}
+                            >
+                              {isFullScreen ? <Minimize size={18} /> : <Maximize size={18} />}
+                            </button>
                           </div>
                         </>
                       ) : (
@@ -473,7 +490,8 @@ export default function VoiceChannelView({
                         </div>
                       )}
                     </div>
-                    {/* Sağ: kamera (tam ekranda gizlenir, Discord gibi sadece yayın görünür) */}
+                    {/* Kamera paneli: sadece yayın istendiği için normal ve tam ekranda gizli */}
+                    {!streamOnly && (
                     <div className="video-stage-camera-panel flex-1 min-w-0 min-h-0 rounded-xl overflow-hidden bg-[#2b2d31] border border-white/10 flex flex-col">
                       <div className="flex-1 min-h-0 relative">
                         {focusedTracks.cameraTrack ? (
@@ -496,6 +514,7 @@ export default function VoiceChannelView({
                         )}
                       </div>
                     </div>
+                    )}
                   </>
                 ) : (
                   <div className="flex-1 min-h-0 w-full relative">
@@ -509,6 +528,8 @@ export default function VoiceChannelView({
                   </div>
                 )}
               </div>
+              {/* Yan panel (Sen + diğerleri): yayın varken gösterilmez, sadece yayın olsun */}
+              {!streamOnly && (
               <div className="video-stage-sidebar h-32 md:h-full w-full md:w-64 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pr-2 pb-2 flex-shrink-0">
                 {otherUsers.map((user) => (
                   <div key={user.id} className="min-w-[200px] md:min-w-0 md:min-h-[140px] flex-shrink-0">
@@ -522,6 +543,7 @@ export default function VoiceChannelView({
                   </div>
                 ))}
               </div>
+              )}
             </div>
             );
           })()
