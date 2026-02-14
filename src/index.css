@@ -125,6 +125,32 @@ button:focus-visible,
   display: flex !important;
   flex-direction: column !important;
 }
+/* Tam ekranda sadece fullscreen overlay görünür; layout (Sen, kamera, PiP) tamamen gizlenir */
+.video-stage:fullscreen .video-stage-layout-wrap,
+.video-stage:-webkit-full-screen .video-stage-layout-wrap,
+.video-stage:-moz-full-screen .video-stage-layout-wrap,
+.video-stage[data-fullscreen="true"] .video-stage-layout-wrap {
+  display: none !important;
+  visibility: hidden !important;
+  position: absolute !important;
+  left: -9999px !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+.video-stage:fullscreen .video-stage-fullscreen-only,
+.video-stage:-webkit-full-screen .video-stage-fullscreen-only,
+.video-stage:-moz-full-screen .video-stage-fullscreen-only,
+.video-stage[data-fullscreen="true"] .video-stage-fullscreen-only {
+  display: flex !important;
+  flex-direction: column !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 9999 !important;
+  background: #000 !important;
+  visibility: visible !important;
+}
 /* Tam ekranda "Sen" paneli ve kamera kutusu tamamen gizlenir (data-fullscreen + :fullscreen) */
 .video-stage:fullscreen .video-stage-sidebar,
 .video-stage:-webkit-full-screen .video-stage-sidebar,

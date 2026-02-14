@@ -440,27 +440,31 @@ export default function VoiceChannelView({
               className="flex-1 min-h-0"
             />
           ) : (
-          <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full">
-          {/* Tam ekranda sadece yayın + çık butonu; kamera ve Sen paneli asla gösterilmez */}
-          {isFullScreen && (() => {
-            const who = focusedId && focusedUser ? getTracksForParticipant(videoTracks, focusedUser.id) : null;
-            const screenTrack = who?.screenTrack;
-            return (
-              <>
-                <div className="absolute inset-0 w-full h-full bg-black">
-                  {screenTrack && <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-cover" />}
-                </div>
-                <button
-                  type="button"
-                  onClick={toggleStageFullScreen}
-                  className="fixed top-4 right-4 z-[9999] px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
-                >
-                  <Minimize size={18} /> Tam ekrandan çık
-                </button>
-              </>
-            );
-          })()}
-          {!isFullScreen && focusedId && focusedUser ? (() => {
+          <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full relative">
+          {/* Tam ekran overlay: normalde hidden; index.css ile tam ekranda gösterilir */}
+          <div className="video-stage-fullscreen-only hidden absolute inset-0 z-[9999] bg-black">
+            {(() => {
+              const who = focusedId && focusedUser ? getTracksForParticipant(videoTracks, focusedUser.id) : null;
+              const screenTrack = who?.screenTrack;
+              return (
+                <>
+                  <div className="absolute inset-0 w-full h-full">
+                    {screenTrack && <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-cover" />}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={toggleStageFullScreen}
+                    className="fixed top-4 right-4 z-[99999] px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
+                  >
+                    <Minimize size={18} /> Tam ekrandan çık
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+          {/* Normal layout: tam ekranda index.css ile gizlenir */}
+          <div className="video-stage-layout-wrap flex-1 flex flex-col min-h-0 w-full">
+          {focusedId && focusedUser ? (() => {
             const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
             const hasScreenAndCamera = focusedTracks.screenTrack && focusedTracks.cameraTrack;
             const selfId = participants[0]?.id ?? null;
@@ -583,6 +587,7 @@ export default function VoiceChannelView({
               </div>
             </div>
           )}
+          </div>
           </div>
           )}
         </div>
