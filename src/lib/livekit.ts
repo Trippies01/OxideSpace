@@ -322,37 +322,41 @@ class LiveKitService {
     }
 
     /**
-     * Ekran paylaşımını başlat/durdur (getDisplayMedia + publishTrack)
+     * Ekran paylaşımını başlat/durdur (getDisplayMedia + publishTrack).
+     * audio: true ile tarayıcı "Ses paylaş" seçeneğini gösterir; yayın sesi karşı tarafa gider.
      */
     async enableScreenShare(enabled: boolean = true): Promise<void> {
         if (!this.room) return;
 
         try {
             if (enabled) {
-                // video: true, audio: false — çoğu tarayıcı ekran paylaşımında audio desteklemez
                 const stream = await navigator.mediaDevices.getDisplayMedia({
                     video: true,
-                    audio: false,
+                    audio: true,
                 });
 
                 const videoTrack = stream.getVideoTracks()[0];
-                if (videoTrack) {
-                    await this.room.localParticipant.publishTrack(videoTrack, {
-                        source: Track.Source.ScreenShare,
-                    });
+                if (!videoTrack) throw new Error('Ekran görüntüsü alınamadı');
 
-                    // Kullanıcı tarayıcıdan "Paylaşımı Durdur" dediğinde
-                    videoTrack.onended = () => {
-                        this.enableScreenShare(false);
-                    };
-                } else {
-                    throw new Error('Ekran görüntüsü alınamadı');
+                await this.room.localParticipant.publishTrack(videoTrack, {
+                    source: Track.Source.ScreenShare,
+                });
+
+                const audioTrack = stream.getAudioTracks()[0];
+                if (audioTrack) {
+                    await this.room.localParticipant.publishTrack(audioTrack, {
+                        source: Track.Source.ScreenShareAudio,
+                    });
                 }
+
+                const stopShare = () => this.enableScreenShare(false);
+                videoTrack.onended = stopShare;
+                if (audioTrack) audioTrack.addEventListener('ended', stopShare);
             } else {
-                const publication = this.room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
-                if (publication?.track) {
-                    await this.room.localParticipant.unpublishTrack(publication.track);
-                }
+                const screenPub = this.room.localParticipant.getTrackPublication(Track.Source.ScreenShare);
+                const screenAudioPub = this.room.localParticipant.getTrackPublication(Track.Source.ScreenShareAudio);
+                if (screenPub?.track) await this.room.localParticipant.unpublishTrack(screenPub.track);
+                if (screenAudioPub?.track) await this.room.localParticipant.unpublishTrack(screenAudioPub.track);
             }
         } catch (error) {
             logger.error('Ekran paylaşımı hatası:', error);

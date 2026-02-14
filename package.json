@@ -19,6 +19,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@jitsi/rnnoise-wasm": "^0.2.1",
     "@livekit/components-react": "^2.9.17",
+    "@picovoice/koala-web": "^3.0.0",
     "@supabase/supabase-js": "^2.89.0",
     "@tauri-apps/api": "^2.0.0",
     "framer-motion": "^11.11.0",

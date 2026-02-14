@@ -306,10 +306,15 @@ export default function VoiceChannelView({
 
   useEffect(() => {
     const handleFullScreenChange = () => {
-      setIsFullScreen(!!document.fullscreenElement && document.fullscreenElement === stageRef.current);
+      const el = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
+      setIsFullScreen(!!el && el === stageRef.current);
     };
     document.addEventListener('fullscreenchange', handleFullScreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullScreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullScreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullScreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullScreenChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -328,11 +333,14 @@ export default function VoiceChannelView({
   }, [onStreamVolumeChange, onNormalVolumeChange]);
 
   const toggleStageFullScreen = () => {
-    if (!stageRef.current) return;
+    const el = stageRef.current;
+    if (!el) return;
     if (!document.fullscreenElement) {
-      stageRef.current.requestFullscreen().catch((err) => console.error('Tam ekran hatası:', err));
+      const req = el.requestFullscreen ?? (el as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> }).webkitRequestFullscreen;
+      if (req) req.call(el).catch((err: unknown) => console.error('Tam ekran hatası:', err));
     } else {
-      document.exitFullscreen();
+      const exit = document.exitFullscreen ?? (document as Document & { webkitExitFullscreen?: () => Promise<void> }).webkitExitFullscreen;
+      if (exit) exit.call(document);
     }
   };
 
@@ -421,7 +429,7 @@ export default function VoiceChannelView({
               className="flex-1 min-h-0"
             />
           ) : (
-          <>
+          <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full">
           {isFullScreen && (
             <button
               type="button"
@@ -537,7 +545,7 @@ export default function VoiceChannelView({
               </div>
             </div>
           )}
-          </>
+          </div>
           )}
         </div>
 

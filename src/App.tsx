@@ -118,6 +118,7 @@ import { useVoiceChannel, useServerManagement, useTypingIndicator, useTypingDebo
 import { useServerContext, useVoiceContext, useUIContext, useUserContext, useMessageContext } from './contexts';
 import { voiceService } from './lib/voice';
 import { livekitService, type MediaDevice } from './lib/livekit';
+import { isKoalaAvailable, createKoalaFilter, releaseKoalaFilter } from './lib/koalaFilter';
 
 export default function OxideApp() {
     // --- CONTEXT HOOKS ---
@@ -596,6 +597,9 @@ export default function OxideApp() {
     const [echoCancellation, setEchoCancellation] = useState(true);
     const [noiseSuppression, setNoiseSuppression] = useState(true);
     const [automaticGainControl, setAutomaticGainControl] = useState(true);
+    const [koalaEnabled, setKoalaEnabled] = useState(() => {
+        try { return localStorage.getItem('oxide_koala_enabled') === 'true'; } catch { return false; }
+    });
     const [videoQuality, setVideoQuality] = useState('720p');
     const [cameraPreview, setCameraPreview] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -707,6 +711,26 @@ export default function OxideApp() {
             livekitService.setVideoInputDevice(videoInputDevice).catch((e) => logger.error(e));
         }
     }, [videoInputDevice]);
+
+    // Koala gürültü bastırma: filtreyi ayarla ve mikrofon açıksa yeniden uygula
+    useEffect(() => {
+        try { localStorage.setItem('oxide_koala_enabled', String(koalaEnabled)); } catch { /* ignore */ }
+        const reapplyMic = () => {
+            const room = livekitService.getRoom();
+            if (!room) return;
+            const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+            if (pub?.track) livekitService.enableAudio(false).then(() => livekitService.enableAudio(true)).catch(() => {});
+        };
+        if (koalaEnabled && isKoalaAvailable()) {
+            createKoalaFilter().then((filter) => {
+                if (filter) { livekitService.setAudioFilter(filter); reapplyMic(); }
+            }).catch(() => {});
+        } else {
+            livekitService.setAudioFilter(null);
+            reapplyMic();
+        }
+        return () => { livekitService.setAudioFilter(null); };
+    }, [koalaEnabled]);
 
     useEffect(() => {
         if (audioOutputDevice) {
@@ -2743,6 +2767,23 @@ export default function OxideApp() {
                                                         <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
                                                     </label>
                                                 </div>
+                                                {isKoalaAvailable() && (
+                                                <div className="flex items-center justify-between p-3 bg-black/40 border border-white/10 rounded-xl">
+                                                    <div>
+                                                        <div className="font-medium text-white">Koala gürültü bastırma</div>
+                                                        <div className="text-xs text-zinc-500">Picovoice Koala ile daha güçlü gürültü azaltma (Access Key gerekir)</div>
+                                                    </div>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={koalaEnabled}
+                                                            onChange={(e) => setKoalaEnabled(e.target.checked)}
+                                                            className="sr-only peer"
+                                                        />
+                                                        <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                                    </label>
+                                                </div>
+                                                )}
                                                 <div className="flex items-center justify-between p-3 bg-black/40 border border-white/10 rounded-xl">
                                                     <div>
                                                         <div className="font-medium text-white">Otomatik Kazanç Kontrolü</div>
