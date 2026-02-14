@@ -738,6 +738,30 @@ export default function OxideApp() {
         }
     }, [audioOutputDevice]);
 
+    // Ses kısıtları: yankı iptali kapalıyken yayın sesi konuşurken kesilmez (kulaklık önerilir)
+    const prevAudioOpts = useRef({ echoCancellation, noiseSuppression, automaticGainControl });
+    useEffect(() => {
+        livekitService.setAudioCaptureOptions({
+            echoCancellation,
+            noiseSuppression,
+            autoGainControl: automaticGainControl,
+        });
+        const changed =
+            prevAudioOpts.current.echoCancellation !== echoCancellation ||
+            prevAudioOpts.current.noiseSuppression !== noiseSuppression ||
+            prevAudioOpts.current.automaticGainControl !== automaticGainControl;
+        prevAudioOpts.current = { echoCancellation, noiseSuppression, automaticGainControl };
+        if (changed && channelType === 'voice') {
+            const room = livekitService.getRoom();
+            if (room) {
+                const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
+                if (pub?.track) {
+                    livekitService.enableAudio(false).then(() => livekitService.enableAudio(true)).catch(() => {});
+                }
+            }
+        }
+    }, [echoCancellation, noiseSuppression, automaticGainControl, channelType]);
+
     useEffect(() => {
         return () => {
             if (newServerIconPreview) {
@@ -2740,7 +2764,7 @@ export default function OxideApp() {
                                                 <div className="flex items-center justify-between p-3 bg-black/40 border border-white/10 rounded-xl">
                                                     <div>
                                                         <div className="font-medium text-white">Yankı İptali</div>
-                                                        <div className="text-xs text-zinc-500">Mikrofonunuzdan gelen yankıyı azaltır</div>
+                                                        <div className="text-xs text-zinc-500">Mikrofonunuzdan gelen yankıyı azaltır. Yayın izlerken konuşunca ses kesiliyorsa kapatıp kulaklık kullanın.</div>
                                                     </div>
                                                     <label className="relative inline-flex items-center cursor-pointer">
                                                         <input

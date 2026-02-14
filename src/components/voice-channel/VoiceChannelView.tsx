@@ -304,10 +304,15 @@ export default function VoiceChannelView({
   const controlBarRef = React.useRef<HTMLDivElement>(null);
   const voiceAreaRef = React.useRef<HTMLDivElement>(null);
 
+  const isFullScreenRef = React.useRef(false);
   useEffect(() => {
     const handleFullScreenChange = () => {
       const el = document.fullscreenElement ?? (document as Document & { webkitFullscreenElement?: Element }).webkitFullscreenElement;
-      setIsFullScreen(!!el && el === stageRef.current);
+      const nowFull = !!el && el === stageRef.current;
+      if (isFullScreenRef.current !== nowFull) {
+        isFullScreenRef.current = nowFull;
+        setIsFullScreen(nowFull);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullScreenChange);

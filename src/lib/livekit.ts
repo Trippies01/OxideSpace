@@ -24,6 +24,12 @@ class LiveKitService {
     private lastStreamVolume = 1;
     /** İsteğe bağlı: mikrofon stream'ini Krisp/RNNoise vb. ile filtrele (Discord seviyesi gürültü engelleme) */
     private audioFilter: ((stream: MediaStream) => Promise<MediaStream>) | null = null;
+    /** Mikrofon açılırken kullanılacak ses kısıtları (yankı iptali kapalıyken yayın sesi konuşurken kesilmez) */
+    private audioCaptureOptions: { echoCancellation?: boolean; noiseSuppression?: boolean; autoGainControl?: boolean } = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+    };
 
     // Callbacks
     private onParticipantConnected?: (participant: RemoteParticipant) => void;
@@ -234,9 +240,13 @@ class LiveKitService {
 
         try {
             if (enabled) {
-                const constraints: MediaStreamConstraints = {
-                    audio: this.audioInputDevice ? { deviceId: { exact: this.audioInputDevice } } : true,
+                const audioOpts: MediaTrackConstraints = {
+                    echoCancellation: this.audioCaptureOptions.echoCancellation ?? true,
+                    noiseSuppression: this.audioCaptureOptions.noiseSuppression ?? true,
+                    autoGainControl: this.audioCaptureOptions.autoGainControl ?? true,
                 };
+                if (this.audioInputDevice) audioOpts.deviceId = { exact: this.audioInputDevice };
+                const constraints: MediaStreamConstraints = { audio: audioOpts };
                 let stream = await navigator.mediaDevices.getUserMedia(constraints);
                 if (this.audioFilter) {
                     try {
@@ -418,6 +428,15 @@ class LiveKitService {
      */
     setAudioFilter(fn: ((stream: MediaStream) => Promise<MediaStream>) | null): void {
         this.audioFilter = fn;
+    }
+
+    /**
+     * Mikrofon açılırken kullanılacak ses kısıtları.
+     * Yankı iptali (echoCancellation) açıkken tarayıcı konuşurken yayın sesini bastırabilir;
+     * yayın izlerken konuşacaksan "Yankı İptali"ni kapatıp kulaklık kullanın.
+     */
+    setAudioCaptureOptions(opts: { echoCancellation?: boolean; noiseSuppression?: boolean; autoGainControl?: boolean }): void {
+        this.audioCaptureOptions = { ...this.audioCaptureOptions, ...opts };
     }
 
     /**
