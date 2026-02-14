@@ -195,6 +195,26 @@ function UserTile({ user, isFocused = false, isSmall = false, focusedId, onFocus
         </button>
       </div>
 
+      {/* Discord tarzı: Yayını izle / Yayını izlemeyi bırak */}
+      {user.screen && (
+        <div className={`absolute z-20 left-0 right-0 ${isSmall ? 'bottom-8' : 'bottom-12 md:bottom-14'} px-2 flex justify-center`}>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onFocusToggle(focusedId === user.id ? null : user.id);
+            }}
+            className="px-3 py-1.5 rounded-md text-xs font-medium bg-[#5865f2] hover:bg-[#4752c4] text-white shadow-lg transition-colors flex items-center gap-1.5"
+          >
+            {focusedId === user.id ? (
+              <> <Minimize2 size={12} /> Yayını izlemeyi bırak </>
+            ) : (
+              <> <ScreenShare size={12} /> Yayını izle </>
+            )}
+          </button>
+        </div>
+      )}
+
       {user.talking && !user.muted && !user.camera && !user.screen && (
         <div className="absolute inset-0 rounded-xl border-2 border-[#23a559] opacity-100 transition-opacity pointer-events-none shadow-[inset_0_0_20px_rgba(35,165,89,0.2)] animate-pulse" />
       )}
@@ -430,14 +450,27 @@ export default function VoiceChannelView({
             />
           ) : (
           <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full">
-          {isFullScreen && (
-            <button
-              type="button"
-              onClick={toggleStageFullScreen}
-              className="fixed top-4 right-4 z-[9999] px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
-            >
-              <Minimize size={18} /> Tam ekrandan çık
-            </button>
+          {(isFullScreen || (focusedId && focusedUser?.screen)) && (
+            <div className="fixed top-4 right-4 z-[9999] flex items-center gap-2">
+              {focusedId && focusedUser?.screen && (
+                <button
+                  type="button"
+                  onClick={() => setFocusedId(null)}
+                  className="px-4 py-2 rounded-lg bg-[#5865f2] hover:bg-[#4752c4] text-white text-sm font-medium flex items-center gap-2 shadow-lg"
+                >
+                  <Minimize2 size={18} /> Yayını izlemeyi bırak
+                </button>
+              )}
+              {isFullScreen && (
+                <button
+                  type="button"
+                  onClick={toggleStageFullScreen}
+                  className="px-4 py-2 rounded-lg bg-black/80 hover:bg-black text-white text-sm font-medium flex items-center gap-2 border border-white/20 shadow-lg"
+                >
+                  <Minimize size={18} /> Tam ekrandan çık
+                </button>
+              )}
+            </div>
           )}
           {focusedId && focusedUser ? (() => {
             const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
@@ -446,13 +479,13 @@ export default function VoiceChannelView({
             const isSelfSharingScreen = isScreenShareOn && focusedUser.id === selfId;
             const showTwoContainers = hasScreenAndCamera || isSelfSharingScreen;
             return (
-            <div className="flex-1 w-full h-full flex flex-col md:flex-row gap-3 md:gap-4 max-w-[1600px] mx-auto min-h-0">
+            <div className="video-stage-layout flex-1 w-full h-full flex flex-col md:flex-row gap-3 md:gap-4 max-w-[1600px] mx-auto min-h-0">
               {/* Ana alan: ekran + kamera iki container veya tek UserTile */}
-              <div className="flex-1 min-h-0 w-full relative flex flex-col md:flex-row gap-3 min-w-0">
+              <div className="video-stage-main flex-1 min-h-0 w-full relative flex flex-col md:flex-row gap-3 min-w-0">
                 {showTwoContainers ? (
                   <>
-                    {/* Sol: ekran paylaşımı (track varsa canlı, yoksa placeholder) */}
-                    <div className="flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10 flex items-center justify-center">
+                    {/* Sol: ekran paylaşımı (tam ekranda tüm alanı kaplar) */}
+                    <div className="video-stage-screen-wrap flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10 flex items-center justify-center">
                       {focusedTracks.screenTrack ? (
                         <>
                           <LivekitVideo track={focusedTracks.screenTrack} muted={false} className="w-full h-full object-contain" />
@@ -467,8 +500,8 @@ export default function VoiceChannelView({
                         </div>
                       )}
                     </div>
-                    {/* Sağ: kamera */}
-                    <div className="flex-1 min-w-0 min-h-0 rounded-xl overflow-hidden bg-[#2b2d31] border border-white/10 flex flex-col">
+                    {/* Sağ: kamera (tam ekranda gizlenir, Discord gibi sadece yayın görünür) */}
+                    <div className="video-stage-camera-panel flex-1 min-w-0 min-h-0 rounded-xl overflow-hidden bg-[#2b2d31] border border-white/10 flex flex-col">
                       <div className="flex-1 min-h-0 relative">
                         {focusedTracks.cameraTrack ? (
                           <>
@@ -503,7 +536,7 @@ export default function VoiceChannelView({
                   </div>
                 )}
               </div>
-              <div className="h-32 md:h-full w-full md:w-64 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pr-2 pb-2 flex-shrink-0">
+              <div className="video-stage-sidebar h-32 md:h-full w-full md:w-64 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pr-2 pb-2 flex-shrink-0">
                 {otherUsers.map((user) => (
                   <div key={user.id} className="min-w-[200px] md:min-w-0 md:min-h-[140px] flex-shrink-0">
                     <UserTile
@@ -606,7 +639,7 @@ export default function VoiceChannelView({
               icon={focusedId ? <LayoutGrid size={20} /> : <Maximize2 size={20} />}
               active={false}
               onClick={() => setFocusedId(focusedId ? null : participants[0]?.id ?? null)}
-              tooltip={focusedId ? 'Izgara Görünümü' : 'Odaklan'}
+              tooltip={focusedId ? (focusedUser?.screen ? 'Yayını izlemeyi bırak' : 'Izgara Görünümü') : 'Yayını izle / Odaklan'}
             />
             <ControlBtn
               icon={isFullScreen ? <Minimize size={20} /> : <Maximize size={20} />}
