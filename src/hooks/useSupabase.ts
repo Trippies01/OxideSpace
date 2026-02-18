@@ -103,6 +103,17 @@ export function useAuth() {
     [supabase]
   );
 
+  /** Google ile giriş. Tarayıcıda Google sayfasına yönlendirir; dönüşte session otomatik set edilir. */
+  const signInWithGoogle = useCallback(async () => {
+    const redirectTo = typeof window !== 'undefined' ? `${window.location.origin}/` : undefined;
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) throw error;
+    if (data?.url) window.location.href = data.url;
+  }, [supabase]);
+
   return {
     session,
     user,
@@ -110,6 +121,7 @@ export function useAuth() {
     signOut,
     signIn,
     signUp,
+    signInWithGoogle,
     resetPasswordForEmail,
     isAuthenticated: !!session && !!user,
   };

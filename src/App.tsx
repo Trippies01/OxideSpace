@@ -29,6 +29,7 @@ import type { Channel, Server } from './types';
 // --- COMPONENT IMPORTS ---
 import { ChatArea } from './components/ChatArea';
 import { Sidebar } from './components/Sidebar';
+import { AppUpdateBanner } from './components/AppUpdateBanner';
 import { GlassCard } from './components/ui/GlassCard';
 import { Button } from './components/ui/Button';
 import { Avatar } from './components/ui/Avatar';
@@ -276,7 +277,7 @@ export default function OxideApp() {
 
     // --- SUPABASE HOOKS ---
     const supabase = useSupabase();
-    const { session, user: authUser, loading: authLoading } = useAuth();
+    const { session, user: authUser, loading: authLoading, signOut } = useAuth();
     const { profile, loading: profileLoading, updateProfile, refetch: refetchProfile } = useProfile();
 
     const needsUsername = (p: typeof profile) =>
@@ -458,7 +459,7 @@ export default function OxideApp() {
                 next.set(getKey(participant.identity, source), { track, source, muted: !!publication?.isMuted });
                 return next;
             });
-            if (source === Track.Source.ScreenShare && activeChannelId) {
+            if (activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
                 fetchVoiceChannelUsers(activeChannelId);
             }
         };
@@ -471,7 +472,7 @@ export default function OxideApp() {
                 next.delete(getKey(participant.identity, source));
                 return next;
             });
-            if (source === Track.Source.ScreenShare && activeChannelId) {
+            if (activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
                 fetchVoiceChannelUsers(activeChannelId);
             }
         };
@@ -1650,6 +1651,7 @@ export default function OxideApp() {
     } else {
         content = (
         <div className="h-screen w-full bg-[#09090b] text-white flex flex-col font-sans overflow-hidden relative selection:bg-orange-500/30" onClick={() => { setShowNotifications(false); }}>
+                <AppUpdateBanner />
 
             {/* Toast */}
             <div className="absolute bottom-6 right-6 z-[150] flex flex-col gap-2 pointer-events-none">
@@ -2561,7 +2563,13 @@ export default function OxideApp() {
                                 </div>
                             ))}
                             <div className="my-4 h-px bg-white/5" />
-                            <div onClick={() => setModals(m => ({ ...m, settings: false }))} className="px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-rose-400 hover:bg-rose-500/10 flex items-center justify-between group">
+                            <div
+                                onClick={async () => {
+                                    setModals(m => ({ ...m, settings: false }));
+                                    await signOut();
+                                }}
+                                className="px-3 py-2.5 rounded-lg cursor-pointer text-sm font-medium text-rose-400 hover:bg-rose-500/10 flex items-center justify-between group"
+                            >
                                 Çıkış Yap <LogOut size={16} className="group-hover:translate-x-1 transition-transform" />
                             </div>
                         </div>

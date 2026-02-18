@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "notes": "İlk sürüm.",
+  "pub_date": "2025-01-01T00:00:00Z",
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "BURAYA_IMZA_EKLEYECEKSIN",
+      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.1.0/Oxide.App_0.1.0_x64-setup.nsis.zip"
+    }
+  }
+}

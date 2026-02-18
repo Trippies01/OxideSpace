@@ -25,7 +25,6 @@ import {
   X,
 } from 'lucide-react';
 import { LivekitVideo } from '../ui/LivekitVideo';
-import { VideoGridLayout, type VideoGridParticipant } from './VideoGridLayout';
 import { VoiceSesContextMenu } from './VoiceSesContextMenu';
 
 export interface VoiceChannelParticipant {
@@ -102,37 +101,49 @@ function UserTile({ user, isFocused = false, isSmall = false, focusedId, onFocus
   return (
     <div
       className={`
-        relative w-full h-full bg-[#2b2d31] rounded-xl flex items-center justify-center shadow-lg group border border-[#1e1f22] overflow-hidden transition-all duration-300
-        ${isSmall ? 'aspect-video md:aspect-auto md:h-32' : 'aspect-video'}
+        relative w-full h-full bg-black rounded-lg flex items-center justify-center shadow-lg group border border-[#1e1f22] overflow-hidden transition-all duration-300
+        ${isSmall ? 'aspect-video' : 'aspect-video'}
         ${isFocused ? 'ring-1 ring-white/10' : ''}
       `}
     >
       {hasScreenTrack ? (
-        <div className="absolute inset-0 bg-[#000]">
+        <div className="absolute inset-0 bg-black">
           <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-contain" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none" />
           <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md animate-pulse z-20">
             <ScreenShare size={10} /> YAYINDA
           </div>
+          {/* Discord gibi: odakta değilse "Yayını izle" — tıklanana kadar ana alanda oynatılmaz */}
+          {!isFocused && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onFocusToggle(user.id); }}
+              className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 hover:bg-black/50 transition-colors"
+            >
+              <span className="px-4 py-2 rounded-lg bg-[#23a559] hover:bg-[#1f9651] text-white font-medium text-sm flex items-center gap-2 shadow-lg">
+                <Maximize2 size={18} /> Yayını izle
+              </span>
+            </button>
+          )}
         </div>
       ) : hasCameraTrack ? (
-        <div className="absolute inset-0 bg-[#111]">
-          <LivekitVideo track={cameraTrack} muted={cameraMuted} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black">
+          <LivekitVideo track={cameraTrack} muted={cameraMuted} className="w-full h-full object-contain" />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
         </div>
       ) : user.screen ? (
-        <div className="absolute inset-0 bg-[#000] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black flex items-center justify-center">
           <p className="text-gray-500 text-sm z-10">Ekran yükleniyor...</p>
           <div className="absolute top-3 right-3 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded flex items-center gap-1 shadow-md animate-pulse z-20">
             <ScreenShare size={10} /> YAYINDA
           </div>
         </div>
       ) : user.camera ? (
-        <div className="absolute inset-0 bg-[#111] flex items-center justify-center">
+        <div className="absolute inset-0 bg-black flex items-center justify-center">
           <img
             src={user.avatar || `https://api.dicebear.com/9.x/avataaars/svg?seed=${user.seed}`}
             alt="Kamera"
-            className="w-full h-full object-cover opacity-80"
+            className="w-full h-full object-contain opacity-80"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
         </div>
@@ -269,6 +280,15 @@ function getTracksForParticipant(
   };
 }
 
+/** Map'teki ilk ekran paylaşımı track'ini bul (identity farklı olsa bile) */
+function getAnyScreenShareTrack(videoTracks: Map<string, VideoTrackEntry> | undefined): Track | null {
+  if (!videoTracks || videoTracks.size === 0) return null;
+  for (const [, entry] of videoTracks) {
+    if (entry.source === Track.Source.ScreenShare && entry.track) return entry.track;
+  }
+  return null;
+}
+
 export default function VoiceChannelView({
   channelName,
   channelBadge = 'Vip#2',
@@ -290,10 +310,7 @@ export default function VoiceChannelView({
   onStreamVolumeChange,
   onNormalVolumeChange,
 }: VoiceChannelViewProps) {
-  type LayoutMode = 'stage' | 'grid' | 'speaker';
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('stage');
   const [focusedId, setFocusedId] = useState<string | null>(null);
-  const [speakerGridIndex, setSpeakerGridIndex] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -359,8 +376,8 @@ export default function VoiceChannelView({
     const next = !isScreenShareOn;
     onScreenShareToggle();
     if (next) {
-      setFocusedId(participants[0]?.id ?? null);
       setIsChatOpen(false);
+      /* Discord gibi: yayını otomatik ana alanda açma; kullanıcı "Yayını izle" deyince açılır */
     } else if (focusedId === participants[0]?.id) {
       setFocusedId(null);
     }
@@ -383,28 +400,12 @@ export default function VoiceChannelView({
   };
 
   const focusedUser = participants.find((p) => p.id === focusedId);
-  const otherUsers = participants.filter((p) => p.id !== focusedId);
-
-  const gridParticipants: VideoGridParticipant[] = participants.map((p) => {
-    const t = getTracksForParticipant(videoTracks, p.id);
-    return {
-      id: p.id,
-      name: p.name,
-      avatar: p.avatar,
-      muted: p.muted,
-      isSpeaking: p.talking,
-      cameraTrack: t.cameraTrack,
-      screenTrack: t.screenTrack,
-      cameraMuted: t.cameraMuted,
-      screenMuted: t.screenMuted,
-    };
-  });
 
   return (
     <div className="flex h-full w-full min-h-0 bg-[#1e1f22] text-gray-100 font-sans overflow-hidden">
       {/* === SOL / ORTA BÖLÜM (VİDEO ALANI) === */}
       <div ref={voiceAreaRef} className="flex-1 flex flex-col relative bg-black transition-all duration-300 min-w-0">
-        {/* Kanal Bilgisi + Layout toggle */}
+        {/* Kanal Bilgisi (Discord'da Izgara/Konuşmacı toggle yok) */}
         <div className="absolute top-4 left-4 right-4 z-50 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-[#1e1f22]/90 hover:bg-[#1e1f22] transition-colors select-none backdrop-blur-sm border border-white/5 shadow-lg">
             <Volume2 size={16} className="text-gray-400" />
@@ -412,45 +413,28 @@ export default function VoiceChannelView({
             <div className="w-px h-3 bg-gray-600 mx-1" />
             <span className="text-xs text-green-500 font-mono">{channelBadge}</span>
           </div>
-          <div className="flex rounded-md overflow-hidden border border-white/10 bg-[#1e1f22]/90 backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={() => setLayoutMode((m) => (m === 'stage' ? 'grid' : m === 'grid' ? 'speaker' : 'stage'))}
-              className="px-3 py-1.5 text-xs font-medium transition-colors text-gray-400 hover:text-white hover:bg-white/10"
-              title={layoutMode === 'stage' ? 'Izgara' : layoutMode === 'grid' ? 'Konuşmacı (ekran paylaşımı)' : 'Sahne'}
-            >
-              <LayoutGrid size={16} className="inline-block mr-1 align-middle" />
-              {layoutMode === 'stage' ? 'Izgara' : layoutMode === 'grid' ? 'Konuşmacı' : 'Sahne'}
-            </button>
-          </div>
         </div>
 
         {/* --- ANA SAHNE (tam ekran yapılabilir) --- */}
         <div
           ref={stageRef}
-          className="video-stage relative flex-1 w-full min-h-0 overflow-hidden p-4 md:p-6 flex flex-col bg-black"
+          className="video-stage relative flex-1 w-full h-full min-h-0 overflow-hidden p-4 md:p-6 flex flex-col bg-black"
           data-fullscreen={isFullScreen ? 'true' : undefined}
         >
-          {layoutMode === 'grid' || layoutMode === 'speaker' ? (
-            <VideoGridLayout
-              participants={gridParticipants}
-              mode={layoutMode}
-              maxParticipants={12}
-              speakerIndex={speakerGridIndex}
-              onParticipantClick={(_, i) => setSpeakerGridIndex(i)}
-              className="flex-1 min-h-0"
-            />
-          ) : (
-          <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full relative">
-          {/* Discord gibi: tam ekranda SADECE yayın + çık butonu; katılımcı/Sen paneli render edilmez */}
+          <div className="video-stage-inner flex-1 flex flex-col min-h-0 w-full h-full relative">
+          {/* Fullscreen: only screen track + exit button */}
           {isFullScreen ? (
             (() => {
               const who = focusedId && focusedUser ? getTracksForParticipant(videoTracks, focusedUser.id) : null;
-              const screenTrack = who?.screenTrack;
+              let screenTrack = who?.screenTrack;
+              if (!screenTrack && participants.length > 0) {
+                const sharer = participants.find((p) => getTracksForParticipant(videoTracks, p.id).screenTrack) ?? participants.find((p) => p.screen);
+                screenTrack = sharer ? getTracksForParticipant(videoTracks, sharer.id).screenTrack ?? null : null;
+              }
               return (
                 <>
                   <div className="absolute inset-0 w-full h-full bg-black">
-                    {screenTrack && <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-cover" />}
+                    {screenTrack && <LivekitVideo track={screenTrack} muted={false} className="w-full h-full object-contain" />}
                   </div>
                   <button
                     type="button"
@@ -464,133 +448,102 @@ export default function VoiceChannelView({
             })()
           ) : (
           <>
-          {focusedId && focusedUser ? (() => {
-            const focusedTracks = getTracksForParticipant(videoTracks, focusedUser.id);
-            const hasScreenAndCamera = focusedTracks.screenTrack && focusedTracks.cameraTrack;
-            const selfId = participants[0]?.id ?? null;
-            const isSelfSharingScreen = isScreenShareOn && focusedUser.id === selfId;
-            const showTwoContainers = hasScreenAndCamera || isSelfSharingScreen;
-            /* Meet gibi yan panel yok: yayın varken sadece yayın, sidebar ve kamera kutusu gösterilmez */
-            const streamOnly = showTwoContainers;
+          {/* Discord gibi: ana container = kamera (üst), yayın paylaşımı hemen aşağıda, sonra katılımcı grid */}
+          {(() => {
+            if (participants.length === 0) {
+              return (
+                <div className="flex-1 flex flex-col items-center justify-center text-gray-500 h-full">
+                  <Volume2 size={48} className="mb-4 opacity-50" />
+                  <p className="text-sm">Henüz kimse yok.</p>
+                </div>
+              );
+            }
+            const selfId = participants[0]?.id;
+            const selfTracks = selfId ? getTracksForParticipant(videoTracks, selfId) : null;
+            const someoneScreenSharing = isScreenShareOn || participants.some((p) => getTracksForParticipant(videoTracks, p.id).screenTrack ?? p.screen);
+            const screenSharer =
+              (focusedId && focusedUser && (getTracksForParticipant(videoTracks, focusedUser.id).screenTrack || focusedUser.screen) ? focusedUser : null)
+              ?? participants.find((p) => getTracksForParticipant(videoTracks, p.id).screenTrack)
+              ?? participants.find((p) => p.screen)
+              ?? (isScreenShareOn && participants[0] ? participants[0] : null);
+            const screenSharerTracks = screenSharer ? getTracksForParticipant(videoTracks, screenSharer.id) : null;
+            const screenTrackToShow =
+              screenSharerTracks?.screenTrack
+              ?? (isScreenShareOn ? selfTracks?.screenTrack : null)
+              ?? (someoneScreenSharing ? getAnyScreenShareTrack(videoTracks) : null);
+
+            const gridList = participants.filter(
+              (p) => (isVideoOn && p.id === selfId ? false : true) && (screenSharer && p.id === screenSharer.id ? false : true)
+            );
+            const n = Math.max(1, gridList.length);
+            const gridCols = n <= 1 ? 1 : n <= 4 ? 2 : n <= 9 ? 3 : 4;
+
             return (
-            <div className="video-stage-layout flex-1 w-full h-full flex flex-col md:flex-row gap-3 md:gap-4 max-w-[1600px] mx-auto min-h-0">
-              {/* Ana alan: sadece yayın veya ekran+kamera veya tek kullanıcı */}
-              <div className="video-stage-main flex-1 min-h-0 w-full relative flex flex-col md:flex-row gap-3 min-w-0">
-                {showTwoContainers ? (
-                  <>
-                    {/* Yayın — tek başına (yanında Sen/kamera paneli yok) */}
-                    <div className="video-stage-screen-wrap flex-1 min-w-0 min-h-0 relative rounded-xl overflow-hidden bg-[#000] border border-white/10 flex items-center justify-center">
-                      {focusedTracks.screenTrack ? (
-                        <>
-                          <LivekitVideo track={focusedTracks.screenTrack} muted={false} className="w-full h-full object-contain" />
-                          <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
-                            <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse">
-                              <ScreenShare size={10} /> YAYINDA
-                            </div>
-                            <button
-                              type="button"
-                              onClick={toggleStageFullScreen}
-                              className="p-2 rounded bg-black/60 hover:bg-black/80 text-white transition-colors"
-                              title={isFullScreen ? 'Tam ekrandan çık' : 'Tam ekran (Discord gibi)'}
-                            >
-                              {isFullScreen ? <Minimize size={18} /> : <Maximize size={18} />}
-                            </button>
-                          </div>
-                        </>
+              <div className="flex flex-1 flex-row gap-2 min-h-0 overflow-hidden w-full">
+                {/* Sol: Profil alanı — sadece kamera + grid, Discord gibi sabit; ekran paylaşınca aşağı kaymaz */}
+                <div className="flex-1 flex flex-col gap-2 min-w-0 min-h-0 overflow-hidden">
+                  {/* 1. Ana container: sadece kamera (profil) */}
+                  {isVideoOn && (
+                    <div className="w-full aspect-video flex-shrink-0 rounded-lg overflow-hidden bg-black border border-white/10 relative flex items-center justify-center">
+                      {selfTracks?.cameraTrack ? (
+                        <LivekitVideo track={selfTracks.cameraTrack} muted={selfTracks.cameraMuted} className="w-full h-full object-contain" />
                       ) : (
-                        <div className="flex flex-col items-center justify-center gap-3 text-zinc-500">
-                          <ScreenShare size={48} className="opacity-50" />
-                          <span className="text-sm font-medium">Yayın başlatılıyor...</span>
+                        <div className="flex flex-col items-center justify-center text-zinc-500">
+                          <Video size={32} className="opacity-50" />
+                          <span className="text-xs mt-2">Kamera</span>
                         </div>
                       )}
                     </div>
-                    {/* Kamera paneli: sadece yayın istendiği için normal ve tam ekranda gizli */}
-                    {!streamOnly && (
-                    <div className="video-stage-camera-panel flex-1 min-w-0 min-h-0 rounded-xl overflow-hidden bg-[#2b2d31] border border-white/10 flex flex-col">
-                      <div className="flex-1 min-h-0 relative">
-                        {focusedTracks.cameraTrack ? (
-                          <>
-                            <LivekitVideo track={focusedTracks.cameraTrack} muted={focusedTracks.cameraMuted} className="w-full h-full object-cover" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" />
-                            <div className="absolute bottom-2 left-2 right-2 flex items-center gap-2 z-10">
-                              <span className="text-sm font-medium text-white truncate drop-shadow-lg">{focusedUser.name}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center text-zinc-500">
-                            {focusedUser.avatar ? (
-                              <img src={focusedUser.avatar} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-white/10" />
-                            ) : (
-                              <Monitor size={40} className="opacity-50" />
-                            )}
-                            <span className="text-sm mt-2 truncate max-w-full px-4">{focusedUser.name}</span>
-                          </div>
-                        )}
-                      </div>
+                  )}
+                  {/* 2. Katılımcılar grid */}
+                  {gridList.length > 0 && (
+                    <div
+                      className="grid gap-2 flex-1 min-w-0 min-h-0 overflow-auto content-start"
+                      style={{ gridTemplateColumns: `repeat(${gridCols}, minmax(0, 1fr))`, gridAutoRows: 'auto' }}
+                    >
+                      {gridList.map((user) => (
+                        <div key={user.id} className="min-w-0 aspect-video rounded-lg overflow-hidden">
+                          <UserTile
+                            user={user}
+                            focusedId={focusedId}
+                            onFocusToggle={setFocusedId}
+                            {...getTracksForParticipant(videoTracks, user.id)}
+                          />
+                        </div>
+                      ))}
                     </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="flex-1 min-h-0 w-full relative">
-                    <UserTile
-                      user={focusedUser}
-                      isFocused
-                      focusedId={focusedId}
-                      onFocusToggle={setFocusedId}
-                      {...focusedTracks}
-                    />
+                  )}
+                </div>
+                {/* Sağ: Ayrı container — sadece ekran paylaşımı; açılınca layout büyümez, yanında sabit panel */}
+                {someoneScreenSharing && screenSharer && (
+                  <div className="w-[min(420px,45%)] flex-shrink-0 flex flex-col min-h-0 rounded-lg overflow-hidden bg-black border border-white/10">
+                    <div className="flex-1 min-h-0 relative flex items-center justify-center aspect-video max-h-full">
+                      {screenTrackToShow ? (
+                        <LivekitVideo track={screenTrackToShow} muted={false} className="w-full h-full object-contain" />
+                      ) : (
+                        <div className="flex flex-col items-center justify-center text-zinc-500">
+                          <ScreenShare size={40} className="opacity-50" />
+                          <span className="text-sm mt-2">Ekran yükleniyor...</span>
+                        </div>
+                      )}
+                      <div className="absolute top-2 right-2 flex items-center gap-2 z-20">
+                        <div className="bg-red-600 text-white text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1 shadow-md animate-pulse">
+                          <ScreenShare size={10} /> YAYINDA
+                        </div>
+                        <button type="button" onClick={toggleStageFullScreen} className="p-2 rounded bg-black/60 hover:bg-black/80 text-white transition-colors" title="Tam ekran">
+                          <Maximize size={18} />
+                        </button>
+                      </div>
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded bg-black/60 text-white text-sm font-medium truncate max-w-full">{screenSharer.name}</div>
+                    </div>
                   </div>
                 )}
               </div>
-              {/* Yan panel (Sen + diğerleri): yayın varken gösterilmez, sadece yayın olsun */}
-              {!streamOnly && (
-              <div className="video-stage-sidebar h-32 md:h-full w-full md:w-64 flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto pr-2 pb-2 flex-shrink-0">
-                {otherUsers.map((user) => (
-                  <div key={user.id} className="min-w-[200px] md:min-w-0 md:min-h-[140px] flex-shrink-0">
-                    <UserTile
-                      user={user}
-                      isSmall
-                      focusedId={focusedId}
-                      onFocusToggle={setFocusedId}
-                      {...getTracksForParticipant(videoTracks, user.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-              )}
-            </div>
             );
-          })()
-          : participants.length === 0 ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
-              <Volume2 size={48} className="mb-4 opacity-50" />
-              <p className="text-sm">Henüz kimse yok.</p>
-            </div>
-          ) : (
-            <div className="flex-1 w-full h-full flex items-center justify-center overflow-y-auto min-h-0">
-              <div
-                className={`
-                  w-full max-w-[1400px] grid gap-4 md:gap-6 auto-rows-fr h-fit max-h-full transition-all duration-300
-                  ${isChatOpen ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3'}
-                `}
-              >
-                {participants.map((user) => (
-                  <div key={user.id} className="w-full h-full min-h-[180px]">
-                    <UserTile
-                      user={user}
-                      focusedId={focusedId}
-                      onFocusToggle={setFocusedId}
-                      {...getTracksForParticipant(videoTracks, user.id)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+          })()}
           </>
           )}
           </div>
-          )}
         </div>
 
         {/* --- ALT KONTROL PANELİ --- */}
