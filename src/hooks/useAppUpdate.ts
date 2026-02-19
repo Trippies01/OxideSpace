@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 
-/** Tauri ortamında mı çalışıyoruz (masaüstü uygulama) */
+/** Tauri ortamında mı çalışıyoruz (masaüstü uygulama) - v1/v2 uyumlu */
 export function isTauri(): boolean {
-  return typeof window !== 'undefined' && !!(window as unknown as { __TAURI__?: unknown }).__TAURI__;
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as { __TAURI__?: unknown; __TAURI_INTERNALS__?: unknown };
+  return !!(w.__TAURI__ ?? w.__TAURI_INTERNALS__);
 }
 
 export interface AppUpdateState {

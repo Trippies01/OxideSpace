@@ -1,4 +1,4 @@
-# Oxide App – Kurulum (Setup)
+# Oxide Space – Kurulum (Setup)
 
 Bu proje Tauri ile masaüstü uygulaması olarak derlenir. **Windows 10 (64-bit)** ve üzeri için hazırlanmıştır. Uygulama ikonu `src-tauri/icons/` klasöründe tanımlıdır.
 
@@ -13,8 +13,8 @@ Bu proje Tauri ile masaüstü uygulaması olarak derlenir. **Windows 10 (64-bit)
 
 1. Projede `npm run setup` çalıştır.
 2. Kurulum dosyası şu klasörlerden birinde oluşur:
-   - **MSI:** `src-tauri/target/release/bundle/msi/Oxide App_0.1.0_x64_en-US.msi` (veya benzeri)
-   - **EXE:** `src-tauri/target/release/bundle/nsis/Oxide App_0.1.0_x64-setup.exe` (veya benzeri)
+   - **MSI:** `src-tauri/target/release/bundle/msi/Oxide Space_0.1.0_x64_en-US.msi` (veya benzeri)
+   - **EXE:** `src-tauri/target/release/bundle/nsis/Oxide Space_0.1.0_x64-setup.exe` (veya benzeri)
 3. Bu **.msi** veya **.exe** dosyasını arkadaşına gönder (WeTransfer, Google Drive, USB vb.).
 
 ### Arkadaşının yapacakları (kurulum)
@@ -24,12 +24,12 @@ Bu proje Tauri ile masaüstü uygulaması olarak derlenir. **Windows 10 (64-bit)
 3. Windows “Bu uygulama cihazınızda değişiklik yapmak istiyor” derse **Evet** desin.
 4. Kurulum sihirbazındaki adımları takip etsin (Next / İleri → kurulum konumunu değiştirmek istemezse varsayılanı bırakabilir → Install / Yükle).
 5. Kurulum bitince **Finish** / **Bitir** desin.
-6. Uygulama **Başlat menüsünde** “Oxide App” adıyla görünür; oradan açabilir veya masaüstü kısayolunu kullanabilir.
+6. Uygulama **Başlat menüsünde** “Oxide Space” adıyla görünür; oradan açabilir veya masaüstü kısayolunu kullanabilir.
 
 **Not:** İlk çalıştırmada Windows Defender veya SmartScreen “Tanınmıyor” uyarısı verebilir. “Yine de çalıştır” / “Ek bilgi” → “Yine de çalıştır” seçilerek açılabilir (imza satın alınmadığı için normaldir).
 
 **Özet (arkadaşına yazıp atabileceğin):**
-> Oxide App’i kurmak için: Gönderdiğim .msi veya .exe dosyasını çift tıkla, kurulumu tamamla. Kurulumdan sonra Başlat menüsünden “Oxide App” yazarak açabilirsin. İlk açılışta Windows uyarı verirse “Yine de çalıştır” de.
+> Oxide Space’i kurmak için: Gönderdiğim .msi veya .exe dosyasını çift tıkla, kurulumu tamamla. Kurulumdan sonra Başlat menüsünden “Oxide Space” yazarak açabilirsin. İlk açılışta Windows uyarı verirse “Yine de çalıştır” de.
 
 ---
 
@@ -262,7 +262,7 @@ npm run setup
   "platforms": {
     "windows-x86_64": {
       "signature": "SIG_DOSYASININ_ICERIGI",
-      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.1.1/Oxide.App_0.1.1_x64-setup.nsis.exe"
+      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.1.1/Oxide.Space_0.1.1_x64-setup.nsis.exe"
     }
   }
 }
