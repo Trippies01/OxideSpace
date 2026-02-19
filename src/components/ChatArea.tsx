@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Virtuoso } from 'react-virtuoso';
 import { Hash, Radio, LayoutGrid, MessageCircle, Plus, Smile, Send, Trash2, Loader2, Pencil, Check, X, Search, Paperclip } from 'lucide-react';
 import { Track } from 'livekit-client';
 import type { Message, User, Channel, VoiceState, VoiceChannelUser } from '../types';
@@ -12,6 +13,91 @@ export interface TypingUserDisplay {
     userId: string;
     username: string;
 }
+
+const MessageRow = React.memo(function MessageRow({
+    msg,
+    isEditing,
+    editingContent,
+    onEditingContentChange,
+    onSaveEdit,
+    onCancelEdit,
+    onStartEdit,
+    onDeleteMessage,
+    onEditMessage,
+}: {
+    msg: Message;
+    isEditing: boolean;
+    editingContent: string;
+    onEditingContentChange: (v: string) => void;
+    onSaveEdit: () => void;
+    onCancelEdit: () => void;
+    onStartEdit: () => void;
+    onDeleteMessage: (id: string | number) => void;
+    onEditMessage?: (id: string | number, content: string) => void | Promise<void>;
+}) {
+    return (
+        <div className={`flex gap-4 ${msg.isMe ? 'flex-row-reverse' : ''} group mb-6`}>
+            <div className="flex-shrink-0 mt-auto">
+                {!msg.isMe && <Avatar src={msg.avatar} size="md" status={undefined} onClick={undefined} />}
+            </div>
+            <div className={`flex flex-col max-w-[80%] md:max-w-[70%] ${msg.isMe ? 'items-end' : 'items-start'}`}>
+                <div className="flex items-center gap-2 mb-1 px-1">
+                    <span className="text-xs font-bold text-zinc-400 cursor-pointer hover:underline">{msg.user}</span>
+                    <span className="text-[10px] text-zinc-600">{msg.time}</span>
+                </div>
+                {isEditing && onEditMessage ? (
+                    <div className="flex gap-2 items-center w-full">
+                        <input
+                            value={editingContent}
+                            onChange={(e) => onEditingContentChange(e.target.value)}
+                            maxLength={MESSAGE_MAX_LENGTH}
+                            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
+                            autoFocus
+                        />
+                        <button type="button" onClick={onSaveEdit} className="p-2 text-green-400 hover:bg-white/10 rounded-lg" title="Kaydet"><Check size={16} /></button>
+                        <button type="button" onClick={onCancelEdit} className="p-2 text-zinc-400 hover:bg-white/10 rounded-lg" title="İptal"><X size={16} /></button>
+                    </div>
+                ) : (
+                    <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm relative break-words group/bubble
+                        ${msg.isMe ? 'bg-gradient-to-br from-orange-600 to-red-600 text-white rounded-br-none' : 'bg-white/10 text-zinc-100 rounded-bl-none border border-white/5'}`}>
+                        {(() => {
+                            const { text, imageUrls, fileUrls } = parseMessageContent(String(msg.content || ''));
+                            return (
+                                <>
+                                    {imageUrls.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {imageUrls.map((url, i) => (
+                                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden max-w-[280px] max-h-[280px] border border-white/10">
+                                                    <img src={url} alt="" className="max-w-full max-h-[280px] object-contain" loading="lazy" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {fileUrls.length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mb-2">
+                                            {fileUrls.map((url, i) => (
+                                                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-orange-300 hover:text-orange-200 flex items-center gap-1">
+                                                    📎 {getFileNameFromUrl(url)}
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {text ? <span dangerouslySetInnerHTML={{ __html: escapeHtml(text).replace(/\n/g, '<br/>') }} /> : null}
+                                </>
+                            );
+                        })()}
+                        {msg.isMe && onEditMessage && (
+                            <>
+                                <button type="button" onClick={onStartEdit} className="absolute -top-3 -right-12 bg-black/80 p-1.5 rounded-full text-zinc-400 opacity-0 group-hover/bubble:opacity-100 hover:text-white transition-all border border-white/10" title="Düzenle"><Pencil size={12} /></button>
+                                <button type="button" onClick={() => onDeleteMessage(msg.id)} className="absolute -top-3 -right-3 bg-black/80 p-1.5 rounded-full text-red-400 opacity-0 group-hover/bubble:opacity-100 hover:text-red-300 transition-all border border-white/10" title="Mesajı Sil"><Trash2 size={12} /></button>
+                            </>
+                        )}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+});
 
 interface ChatAreaProps {
     messages: Message[];
@@ -215,14 +301,20 @@ export const ChatArea = React.memo(({
                     />
                 ) : (
                     <>
-                        <div className="flex-1 overflow-y-auto p-4 md:p-6 space-y-6 custom-scrollbar">
+                        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                            {searchTrimmed && (
+                                <div className="flex-shrink-0 flex items-center justify-between py-2 px-4 md:px-6 bg-white/5 rounded-xl mx-4 md:mx-6 mt-2 mb-2 text-sm text-zinc-400">
+                                    <span>Arama: &quot;{searchQuery}&quot; — {displayedMessages.length} mesaj</span>
+                                    <button type="button" onClick={() => { setSearchQuery(''); setSearchOpen(false); }} className="text-orange-400 hover:underline">Temizle</button>
+                                </div>
+                            )}
                             {messagesLoading ? (
-                                <div className="py-20 flex flex-col items-center justify-center gap-4">
+                                <div className="flex-1 flex flex-col items-center justify-center gap-4 py-20">
                                     <Loader2 className="animate-spin text-orange-500" size={40} />
                                     <p className="text-sm text-zinc-500">Mesajlar yükleniyor...</p>
                                 </div>
                             ) : displayedMessages.length === 0 ? (
-                                <div className="py-20 text-center opacity-50 select-none">
+                                <div className="flex-1 py-20 text-center opacity-50 select-none">
                                     {searchTrimmed ? (
                                         <>
                                             <Search size={40} className="mx-auto mb-4 text-zinc-500" />
@@ -240,81 +332,30 @@ export const ChatArea = React.memo(({
                                     )}
                                 </div>
                             ) : (
-                                <>
-                                    {searchTrimmed && (
-                                        <div className="flex items-center justify-between py-2 px-3 bg-white/5 rounded-xl mb-2 text-sm text-zinc-400">
-                                            <span>Arama: &quot;{searchQuery}&quot; — {displayedMessages.length} mesaj</span>
-                                            <button type="button" onClick={() => { setSearchQuery(''); setSearchOpen(false); }} className="text-orange-400 hover:underline">Temizle</button>
-                                        </div>
-                                    )}
-                                {displayedMessages.map((msg: Message) => (
-                                    <div key={msg.id} className={`flex gap-4 ${msg.isMe ? 'flex-row-reverse' : ''} group animate-in slide-in-from-bottom-2 duration-300`}>
-                                        <div className="flex-shrink-0 mt-auto">
-                                            {!msg.isMe && <Avatar src={msg.avatar} size="md" status={undefined} onClick={undefined} />}
-                                        </div>
-                                        <div className={`flex flex-col max-w-[80%] md:max-w-[70%] ${msg.isMe ? 'items-end' : 'items-start'}`}>
-                                            <div className="flex items-center gap-2 mb-1 px-1">
-                                                <span className="text-xs font-bold text-zinc-400 cursor-pointer hover:underline">{msg.user}</span>
-                                                <span className="text-[10px] text-zinc-600">{msg.time}</span>
-                                            </div>
-                                            {editingMessageId === msg.id && onEditMessage ? (
-                                                <div className="flex gap-2 items-center w-full">
-                                                    <input
-                                                        value={editingContent}
-                                                        onChange={(e) => setEditingContent(e.target.value)}
-                                                        maxLength={MESSAGE_MAX_LENGTH}
-                                                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-orange-500"
-                                                        autoFocus
-                                                    />
-                                                    <button type="button" onClick={() => { onEditMessage(msg.id, editingContent); setEditingMessageId(null); setEditingContent(''); }} className="p-2 text-green-400 hover:bg-white/10 rounded-lg" title="Kaydet"><Check size={16} /></button>
-                                                    <button type="button" onClick={() => { setEditingMessageId(null); setEditingContent(''); }} className="p-2 text-zinc-400 hover:bg-white/10 rounded-lg" title="İptal"><X size={16} /></button>
-                                                </div>
-                                            ) : (
-                                            <div className={`px-5 py-3 rounded-2xl text-sm leading-relaxed shadow-sm relative break-words group/bubble
-                                                ${msg.isMe
-                                                    ? 'bg-gradient-to-br from-orange-600 to-red-600 text-white rounded-br-none'
-                                                    : 'bg-white/10 text-zinc-100 rounded-bl-none border border-white/5'}`}>
-                                                {(() => {
-                                                    const { text, imageUrls, fileUrls } = parseMessageContent(String(msg.content || ''));
-                                                    return (
-                                                        <>
-                                                            {imageUrls.length > 0 && (
-                                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                                    {imageUrls.map((url, i) => (
-                                                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block rounded-lg overflow-hidden max-w-[280px] max-h-[280px] border border-white/10">
-                                                                            <img src={url} alt="" className="max-w-full max-h-[280px] object-contain" loading="lazy" />
-                                                                        </a>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            {fileUrls.length > 0 && (
-                                                                <div className="flex flex-wrap gap-2 mb-2">
-                                                                    {fileUrls.map((url, i) => (
-                                                                        <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="text-sm underline text-orange-300 hover:text-orange-200 flex items-center gap-1">
-                                                                            📎 {getFileNameFromUrl(url)}
-                                                                        </a>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-                                                            {text ? <span dangerouslySetInnerHTML={{ __html: escapeHtml(text).replace(/\n/g, '<br/>') }} /> : null}
-                                                        </>
-                                                    );
-                                                })()}
-                                                {msg.isMe && onEditMessage && (
-                                                    <>
-                                                        <button type="button" onClick={() => { setEditingMessageId(msg.id); setEditingContent(String(msg.content || '')); }} className="absolute -top-3 -right-12 bg-black/80 p-1.5 rounded-full text-zinc-400 opacity-0 group-hover/bubble:opacity-100 hover:text-white transition-all border border-white/10" title="Düzenle"><Pencil size={12} /></button>
-                                                        <button type="button" onClick={() => onDeleteMessage(msg.id)} className="absolute -top-3 -right-3 bg-black/80 p-1.5 rounded-full text-red-400 opacity-0 group-hover/bubble:opacity-100 hover:text-red-300 transition-all border border-white/10" title="Mesajı Sil"><Trash2 size={12} /></button>
-                                                    </>
-                                                )}
-                                            </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                                }
-                            </>
+                                <div className="flex-1 min-h-0 p-4 md:p-6 custom-scrollbar" style={{ minHeight: 0 }}>
+                                    <Virtuoso
+                                        style={{ height: '100%' }}
+                                        data={displayedMessages}
+                                        followOutput="smooth"
+                                        components={{
+                                            Footer: () => <div ref={bottomRef} className="h-2" />,
+                                        }}
+                                        itemContent={(_index, msg) => (
+                                            <MessageRow
+                                                msg={msg}
+                                                isEditing={editingMessageId === msg.id}
+                                                editingContent={editingContent}
+                                                onEditingContentChange={setEditingContent}
+                                                onSaveEdit={() => { if (onEditMessage) onEditMessage(msg.id, editingContent); setEditingMessageId(null); setEditingContent(''); }}
+                                                onCancelEdit={() => { setEditingMessageId(null); setEditingContent(''); }}
+                                                onStartEdit={() => { setEditingMessageId(msg.id); setEditingContent(String(msg.content || '')); }}
+                                                onDeleteMessage={onDeleteMessage}
+                                                onEditMessage={onEditMessage}
+                                            />
+                                        )}
+                                    />
+                                </div>
                             )}
-                            <div ref={bottomRef} />
                         </div>
                         {typingUsers.length > 0 && channelType === 'text' && (
                             <div className="px-4 py-1 text-xs text-zinc-500 italic flex items-center gap-1">

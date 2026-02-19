@@ -31,7 +31,7 @@ export function useChannelManagement() {
   );
 
   const updateChannel = useCallback(
-    async (channelId: string, updates: { name?: string; category?: string }) => {
+    async (channelId: string, updates: { name?: string; category?: string; canvas_url?: string | null }) => {
       try {
         setLoading(true);
         setError(null);

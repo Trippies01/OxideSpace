@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useProfile } from '../hooks/useSupabase';
-import { Loader2, Zap, User, AlertCircle } from 'lucide-react';
+import { Loader2, User, AlertCircle } from 'lucide-react';
 
 const USERNAME_MIN = 2;
 const USERNAME_MAX = 32;
@@ -54,8 +54,8 @@ export default function UsernameSetup({ onDone }: { onDone: () => void }) {
 
       <div className="w-full max-w-md relative z-10">
         <div className="text-center mb-8">
-          <div className="inline-flex justify-center p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-3xl border border-white/5 mb-6 shadow-2xl shadow-orange-500/5">
-            <Zap size={40} className="text-orange-500" fill="currentColor" fillOpacity={0.2} />
+          <div className="inline-flex justify-center p-1 bg-white/5 rounded-3xl border border-white/5 mb-6 shadow-2xl shadow-orange-500/5">
+            <img src="/logo.png" alt="OxideSpace" className="w-14 h-14 rounded-2xl object-cover" />
           </div>
           <h1 className="text-4xl font-black text-white mb-2 tracking-tight">
             Oxide<span className="text-orange-500">Space</span>
@@ -103,7 +103,7 @@ export default function UsernameSetup({ onDone }: { onDone: () => void }) {
         </div>
 
         <p className="text-center text-zinc-700 text-xs mt-6">
-          Etiket (örn. #1234) ileride Premium ile değiştirilebilir.
+          Etiket (#1234) otomatik atanır; ileride Premium ile özelleştirilebilecek.
         </p>
       </div>
     </div>

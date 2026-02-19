@@ -5,10 +5,10 @@ import { createPortal } from 'react-dom';
 import {
     Hash, Plus, Search, Bell, LogOut, X, ChevronDown, ChevronRight, Folder,
     Image as ImageIcon, Zap, Menu,
-    Volume2, Shield, CheckCircle, Loader2,
-    AlertCircle, Cpu, Moon, Sun,
+    Volume2, Shield, CheckCircle, Loader2, Layout,
+    AlertCircle, Moon, Sun,
     Speaker, Camera, PenLine, Save, Copy, Calendar,
-    Music, Code2, Award, Coffee, LogIn, Github
+    Music, Code2, Award, Coffee, LogIn, Github, MessageCircle, UserPlus, Check
 } from 'lucide-react';
 import { Track, RoomEvent } from 'livekit-client';
 import {
@@ -28,12 +28,14 @@ import type { Channel, Server } from './types';
 
 // --- COMPONENT IMPORTS ---
 import { ChatArea } from './components/ChatArea';
+import { CanvasChannelView } from './components/CanvasChannelView';
 import { Sidebar } from './components/Sidebar';
 import { AppUpdateBanner } from './components/AppUpdateBanner';
 import { GlassCard } from './components/ui/GlassCard';
 import { Button } from './components/ui/Button';
 import { Avatar } from './components/ui/Avatar';
 import { normalizeStatus } from './utils/helpers';
+import { logger } from './utils/logger';
 import { MESSAGE_MAX_LENGTH, SERVER_NAME_MIN_LENGTH, SERVER_NAME_MAX_LENGTH, CHANNEL_NAME_MIN_LENGTH, CHANNEL_NAME_MAX_LENGTH, MAX_ATTACHMENT_BYTES, MAX_AVATAR_BYTES, ALLOWED_IMAGE_TYPES, ALLOWED_FILE_TYPES, AUTH_CHECK_TIMEOUT_MS } from './constants';
 import { uploadMessageAttachment, uploadAvatar } from './lib/storage';
 
@@ -41,8 +43,28 @@ import { uploadMessageAttachment, uploadAvatar } from './lib/storage';
 
 const SERVER_FOLDERS_KEY = 'oxide_server_folders';
 
-// Bildirimler şu an veritabanına bağlı değil; boş liste (ileride notifications tablosu eklenebilir)
-const INITIAL_NOTIFICATIONS: Array<{ id: number; text: string; time: string; read: boolean }> = [];
+// Bildirim tipi (Supabase public.notifications ile uyumlu)
+export type AppNotification = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  read: boolean;
+  created_at: string;
+  link_url: string | null;
+};
+
+function formatTimeAgo(iso: string): string {
+  const d = new Date(iso);
+  const now = Date.now();
+  const diff = Math.floor((now - d.getTime()) / 1000);
+  if (diff < 60) return 'Az önce';
+  if (diff < 3600) return `${Math.floor(diff / 60)} dk önce`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} sa önce`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)} gün önce`;
+  return d.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+}
 
 // --- YARDIMCI BİLEŞENLER ---
 
@@ -113,9 +135,11 @@ const formatError = (error: unknown): string => {
 };
 
 import Auth from './components/Auth';
+import LandingPage from './components/LandingPage';
 import UsernameSetup from './components/UsernameSetup';
 import { useSupabase, useAuth, useProfile } from './hooks/useSupabase';
-import { useVoiceChannel, useServerManagement, useTypingIndicator, useTypingDebounce, useOnlinePresence, useServerMembers } from './hooks';
+import { isTauri } from './hooks/useAppUpdate';
+import { useVoiceChannel, useServerManagement, useTypingIndicator, useTypingDebounce, useOnlinePresence, useServerMembers, type ServerMemberDisplay } from './hooks';
 import { useServerContext, useVoiceContext, useUIContext, useUserContext, useMessageContext } from './contexts';
 import { voiceService } from './lib/voice';
 import { livekitService, type MediaDevice } from './lib/livekit';
@@ -228,7 +252,7 @@ export default function OxideApp() {
     } = useMessageContext();
 
     // --- LOCAL STATE (component-specific) ---
-    const [notifications] = useState(INITIAL_NOTIFICATIONS);
+    const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [dmMessagesLoading, setDmMessagesLoading] = useState(false);
     const [serverFolders, setServerFolders] = useState<{ id: string; name: string }[]>(() => {
         try {
@@ -274,6 +298,10 @@ export default function OxideApp() {
     }, [serverFolders, serverToFolder, collapsedFolderIds]);
     const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
     const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState<string | null>(null);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [selectedMemberForProfile, setSelectedMemberForProfile] = useState<ServerMemberDisplay | null>(null);
+    const [friendRequestsIncoming, setFriendRequestsIncoming] = useState<Array<{ id: string; from_user_id: string; profiles: { id: string; username: string | null; avatar_url: string | null } | null }>>([]);
+    const [requestStatusWithSelected, setRequestStatusWithSelected] = useState<'pending_sent' | 'pending_received' | 'accepted' | null>(null);
 
     // --- SUPABASE HOOKS ---
     const supabase = useSupabase();
@@ -643,13 +671,13 @@ export default function OxideApp() {
     }, [currentMessages, activeChannelId, activeDmUser]);
 
     useEffect(() => {
-        let interval: any;
+        let interval: ReturnType<typeof setInterval> | undefined;
         if (isMicTesting) {
-            interval = setInterval(() => setMicTestLevel(Math.random() * 100), 100);
+            interval = setInterval(() => setMicTestLevel(Math.random() * 100), 250);
         } else {
             setMicTestLevel(0);
         }
-        return () => clearInterval(interval);
+        return () => { if (interval) clearInterval(interval); };
     }, [isMicTesting]);
 
     useLayoutEffect(() => {
@@ -797,7 +825,7 @@ export default function OxideApp() {
 
             const { data: others, error: othersError } = await supabase
                 .from('dm_participants')
-                .select('thread_id, profiles:user_id(id, username, avatar_url, status)')
+                .select('thread_id, profiles(id, username, avatar_url, status)')
                 .in('thread_id', threadIds)
                 .neq('user_id', authUser.id);
 
@@ -835,6 +863,114 @@ export default function OxideApp() {
             addToast('DM listesi yüklenemedi.', 'error');
         }
     }, [authUser?.id, supabase, addToast]);
+
+    const fetchFriendRequestsIncoming = useCallback(async () => {
+        if (!authUser?.id) {
+            setFriendRequestsIncoming([]);
+            return;
+        }
+        try {
+            const { data, error } = await supabase
+                .from('friend_requests')
+                .select('id, from_user_id, to_user_id, profiles:from_user_id(id, username, avatar_url)')
+                .eq('to_user_id', authUser.id)
+                .eq('status', 'pending');
+            if (error) throw error;
+            const list = (data || []).map((r: any) => ({
+                id: r.id,
+                from_user_id: r.from_user_id,
+                profiles: r.profiles ?? null,
+            }));
+            setFriendRequestsIncoming(list);
+        } catch {
+            setFriendRequestsIncoming([]);
+        }
+    }, [authUser?.id, supabase]);
+
+    useEffect(() => {
+        fetchFriendRequestsIncoming();
+    }, [fetchFriendRequestsIncoming]);
+
+    const fetchNotifications = useCallback(async () => {
+        if (!authUser?.id) {
+            setNotifications([]);
+            return;
+        }
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('id, user_id, type, title, body, read, created_at, link_url')
+                .eq('user_id', authUser.id)
+                .order('created_at', { ascending: false })
+                .limit(50);
+            if (error) throw error;
+            setNotifications((data as AppNotification[]) || []);
+        } catch {
+            setNotifications([]);
+        }
+    }, [authUser?.id, supabase]);
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
+
+    useEffect(() => {
+        if (!authUser?.id) return;
+        const channel = supabase
+            .channel('notifications-live')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${authUser.id}` }, () => {
+                fetchNotifications();
+            })
+            .subscribe();
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [authUser?.id, supabase, fetchNotifications]);
+
+    const markNotificationRead = useCallback(async (id: string) => {
+        try {
+            await supabase.from('notifications').update({ read: true }).eq('id', id).eq('user_id', authUser?.id);
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        } catch { /* ignore */ }
+    }, [authUser?.id, supabase]);
+
+    const markAllNotificationsRead = useCallback(async () => {
+        if (!authUser?.id) return;
+        try {
+            await supabase.from('notifications').update({ read: true }).eq('user_id', authUser.id);
+            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        } catch { /* ignore */ }
+    }, [authUser?.id, supabase]);
+
+    useEffect(() => {
+        if (!selectedMemberForProfile || !authUser?.id) {
+            setRequestStatusWithSelected(null);
+            return;
+        }
+        const memberId = selectedMemberForProfile.id;
+        (async () => {
+            const { data } = await supabase
+                .from('friend_requests')
+                .select('from_user_id, to_user_id, status')
+                .or(`and(from_user_id.eq.${authUser.id},to_user_id.eq.${memberId}),and(from_user_id.eq.${memberId},to_user_id.eq.${authUser.id})`)
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle();
+            if (!data) {
+                setRequestStatusWithSelected(null);
+                return;
+            }
+            if (data.status === 'accepted') {
+                setRequestStatusWithSelected('accepted');
+                return;
+            }
+            if (data.status === 'pending') {
+                setRequestStatusWithSelected(data.from_user_id === authUser.id ? 'pending_sent' : 'pending_received');
+                return;
+            }
+            setRequestStatusWithSelected(null);
+        })();
+    }, [selectedMemberForProfile?.id, authUser?.id, supabase]);
 
     const fetchDmMessages = useCallback(async (threadId: string) => {
         if (!threadId) return;
@@ -903,6 +1039,77 @@ export default function OxideApp() {
         }
         setMobileMenuOpen(false);
     }, [fetchDmMessages]);
+
+    const handleSendFriendRequest = useCallback(async (member: ServerMemberDisplay) => {
+        if (!authUser?.id) return;
+        if (member.id === authUser.id) {
+            addToast('Kendinle arkadaş olamazsın.', 'info');
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('friend_requests')
+                .insert({ from_user_id: authUser.id, to_user_id: member.id, status: 'pending' });
+            if (error) {
+                if (error.code === '23505') {
+                    addToast('Zaten istek gönderdin veya arkadaşsınız.', 'info');
+                    return;
+                }
+                throw error;
+            }
+            setRequestStatusWithSelected('pending_sent');
+            addToast('Arkadaşlık isteği gönderildi.', 'success');
+        } catch (e: unknown) {
+            addToast('İstek gönderilemedi: ' + formatError(e), 'error');
+        }
+    }, [authUser?.id, supabase, addToast]);
+
+    const handleAcceptFriendRequest = useCallback(async (fromUserId: string, fromProfile?: { username: string | null; avatar_url: string | null } | null) => {
+        if (!authUser?.id) return;
+        try {
+            const { data: threadId, error } = await supabase.rpc('accept_friend_request', { p_from_user_id: fromUserId });
+            if (error) throw error;
+            await fetchFriendRequestsIncoming();
+            await fetchDmThreads();
+            setActiveServerId('dm');
+            handleDmSelect({
+                id: fromUserId,
+                name: fromProfile?.username ?? 'Kullanıcı',
+                status: 'offline',
+                avatar: fromProfile?.avatar_url ?? `https://api.dicebear.com/7.x/notionists/svg?seed=${fromUserId}`,
+                threadId,
+            });
+            addToast('Arkadaş eklendi.', 'success');
+        } catch (e: unknown) {
+            addToast('Kabul edilemedi: ' + formatError(e), 'error');
+        }
+    }, [authUser?.id, supabase, fetchFriendRequestsIncoming, fetchDmThreads, handleDmSelect, addToast]);
+
+    const handleRejectFriendRequest = useCallback(async (requestId: string) => {
+        try {
+            const { error } = await supabase
+                .from('friend_requests')
+                .update({ status: 'rejected' })
+                .eq('id', requestId)
+                .eq('to_user_id', authUser?.id);
+            if (error) throw error;
+            await fetchFriendRequestsIncoming();
+            addToast('İstek reddedildi.', 'info');
+        } catch (e: unknown) {
+            addToast('Reddedilemedi: ' + formatError(e), 'error');
+        }
+    }, [authUser?.id, supabase, fetchFriendRequestsIncoming, addToast]);
+
+    const handleOpenDmWithMemberIfFriend = useCallback((member: ServerMemberDisplay) => {
+        const friend = friends.find(f => f.id === member.id);
+        if (friend) {
+            setSelectedMemberForProfile(null);
+            setActiveServerId('dm');
+            handleDmSelect(friend);
+        } else {
+            addToast('Önce arkadaşlık isteğini kabul etmeleri gerekiyor.', 'info');
+        }
+    }, [friends, handleDmSelect]);
 
     const currentServer = useMemo(() => 
         servers.find(s => s.id === activeServerId) || servers[0],
@@ -1085,6 +1292,12 @@ export default function OxideApp() {
             }
         }
     }, [activeServerId, channelType, activeChannelId, supabase, addToast, setCurrentMessages]);
+
+    const handleSaveCanvasData = useCallback(async (channelId: string, data: Record<string, unknown>) => {
+        const { error } = await supabase.from('channels').update({ canvas_data: data }).eq('id', channelId);
+        if (error) throw error;
+        await refetchChannels();
+    }, [supabase, refetchChannels]);
 
     const handleCreateChannel = async () => {
         if (isCreatingChannel) return;
@@ -1477,70 +1690,27 @@ export default function OxideApp() {
             }
 
             if (profile.id === authUser.id) {
-                addToast('Kendinle DM başlatamazsın.', 'info');
+                addToast('Kendinle arkadaş olamazsın.', 'info');
                 return;
             }
 
-            const { data: myThreads, error: myThreadsError } = await supabase
-                .from('dm_participants')
-                .select('thread_id')
-                .eq('user_id', authUser.id);
-
-            if (myThreadsError) throw myThreadsError;
-
-            const threadIds = (myThreads || []).map(t => t.thread_id);
-            let threadId: string | null = null;
-
-            if (threadIds.length > 0) {
-                const { data: existing } = await supabase
-                    .from('dm_participants')
-                    .select('thread_id')
-                    .eq('user_id', profile.id)
-                    .in('thread_id', threadIds)
-                    .limit(1)
-                    .single();
-
-                if (existing?.thread_id) {
-                    threadId = existing.thread_id;
+            const { error: reqErr } = await supabase
+                .from('friend_requests')
+                .insert({ from_user_id: authUser.id, to_user_id: profile.id, status: 'pending' });
+            if (reqErr) {
+                if (reqErr.code === '23505') {
+                    addToast('Zaten istek gönderdin veya arkadaşsınız.', 'info');
+                } else {
+                    throw reqErr;
                 }
+            } else {
+                addToast('Arkadaşlık isteği gönderildi.', 'success');
             }
-
-            if (!threadId) {
-                const { data: thread, error: threadError } = await supabase
-                    .from('dm_threads')
-                    .insert({})
-                    .select()
-                    .single();
-
-                if (threadError || !thread) throw threadError;
-
-                const { error: participantsError } = await supabase
-                    .from('dm_participants')
-                    .insert([
-                        { thread_id: thread.id, user_id: authUser.id },
-                        { thread_id: thread.id, user_id: profile.id },
-                    ]);
-
-                if (participantsError) throw participantsError;
-                threadId = thread.id;
-            }
-
-            await fetchDmThreads();
             setNewFriendName('');
             setShowAddFriend(false);
-            addToast(`${profile.username || newFriendName} eklendi!`, 'success');
-
-            if (threadId) {
-                handleDmSelect({
-                    id: profile.id,
-                    name: profile.username || newFriendName,
-                    status: profile.status || 'offline',
-                    avatar: profile.avatar_url || `https://api.dicebear.com/7.x/notionists/svg?seed=${profile.id}`,
-                    threadId,
-                });
-            }
+            await fetchFriendRequestsIncoming();
         } catch (error: any) {
-            addToast('DM oluşturulamadı: ' + (error.message || 'Bilinmeyen hata'), 'error');
+            addToast('İstek gönderilemedi: ' + (error.message || 'Bilinmeyen hata'), 'error');
         }
     };
 
@@ -1625,7 +1795,13 @@ export default function OxideApp() {
             </div>
         );
     } else if (!session) {
-        content = <Auth onLogin={() => { }} />;
+        if (isTauri()) {
+            content = <Auth onLogin={() => {}} />;
+        } else {
+            content = showAuthModal
+                ? <Auth onLogin={() => setShowAuthModal(false)} />
+                : <LandingPage onLoginClick={() => setShowAuthModal(true)} />;
+        }
     } else if (profileLoading || !profile) {
         content = (
             <div className="h-screen w-full bg-[#09090b] flex items-center justify-center text-white">
@@ -1634,20 +1810,6 @@ export default function OxideApp() {
         );
     } else if (needsUsername(profile)) {
         content = <UsernameSetup onDone={refetchProfile} />;
-    } else if (view === 'setup') {
-        content = (
-            <div className="h-screen w-full bg-[#0a0a0f] text-white flex items-center justify-center overflow-hidden relative">
-                <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1550751827-4bd374c3f58b?q=80&w=2070&auto=format&fit=crop')] bg-cover opacity-20 animate-pulse" />
-                <GlassCard className="z-10 p-10 rounded-[3rem] max-w-lg w-full text-center border-white/10 animate-in zoom-in duration-500">
-                    <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-red-600 rounded-3xl mx-auto flex items-center justify-center mb-8 shadow-2xl rotate-3 border border-orange-400/30">
-                        <Cpu size={48} className="text-white" />
-                    </div>
-                    <h1 className="text-5xl font-black mb-4 tracking-tighter">Oxide<span className="text-orange-500">Space</span></h1>
-                    <p className="text-zinc-400 mb-8 text-lg">Dijital iletişimde yeni bir element.</p>
-                    <Button primary className="w-full py-4 text-lg" onClick={() => setView('app')}>Yörüngeye Gir</Button>
-                </GlassCard>
-            </div>
-        );
     } else {
         content = (
         <div className="h-screen w-full bg-[#09090b] text-white flex flex-col font-sans overflow-hidden relative selection:bg-orange-500/30" onClick={() => { setShowNotifications(false); }}>
@@ -1679,8 +1841,8 @@ export default function OxideApp() {
                         className="flex items-center gap-3 cursor-pointer group flex-shrink-0 rounded-2xl px-3 py-2 transition-all duration-300 hover:bg-white/5"
                         onClick={() => handleServerSwitch('dm')}
                     >
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all duration-300 ${activeServerId === 'dm' ? 'bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg shadow-orange-500/40 ring-2 ring-orange-400/50' : 'bg-white/5 text-zinc-400 group-hover:bg-white/10 group-hover:text-white'}`}>
-                            <Cpu size={22} />
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-300 ${activeServerId === 'dm' ? 'shadow-lg shadow-orange-500/40 ring-2 ring-orange-400/50' : 'bg-white/5 group-hover:bg-white/10'}`}>
+                            <img src="/logo.png" alt="" className="w-full h-full object-cover" />
                         </div>
                         <span className="font-bold text-lg tracking-tight hidden md:block bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent">Oxide<span className="text-orange-400">Space</span></span>
                     </div>
@@ -1887,14 +2049,24 @@ export default function OxideApp() {
                             >
                                 <div className="p-3 border-b border-white/5 flex justify-between items-center bg-white/5">
                                     <span className="font-bold text-sm">Bildirimler</span>
-                                    <button className="text-xs text-orange-400 hover:text-orange-300">Tümünü Okundu İşaretle</button>
+                                    {notifications.some(n => !n.read) && (
+                                        <button type="button" onClick={markAllNotificationsRead} className="text-xs text-orange-400 hover:text-orange-300">Tümünü Okundu İşaretle</button>
+                                    )}
                                 </div>
                                 <div className="max-h-64 overflow-y-auto">
                                     {notifications.length === 0 ? <p className="p-4 text-center text-zinc-500 text-sm">Bildirim yok.</p> :
                                         notifications.map(n => (
-                                            <div key={n.id} className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!n.read ? 'bg-orange-500/5' : ''}`}>
-                                                <p className="text-sm text-zinc-200 mb-1">{n.text}</p>
-                                                <span className="text-[10px] text-zinc-500">{n.time} önce</span>
+                                            <div
+                                                key={n.id}
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => { markNotificationRead(n.id); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); markNotificationRead(n.id); } }}
+                                                className={`p-3 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer ${!n.read ? 'bg-orange-500/5' : ''}`}
+                                            >
+                                                <p className="text-sm font-medium text-zinc-200 mb-0.5">{n.title}</p>
+                                                {n.body && <p className="text-xs text-zinc-400 mb-1">{n.body}</p>}
+                                                <span className="text-[10px] text-zinc-500">{formatTimeAgo(n.created_at)}</span>
                                             </div>
                                         ))}
                                 </div>
@@ -1960,6 +2132,9 @@ export default function OxideApp() {
                         setVoiceChannelUsers={setVoiceChannelUsers}
                         onDeleteChannel={handleDeleteChannel}
                         onlineUserIds={onlineUserIds}
+                        friendRequestsIncoming={friendRequestsIncoming}
+                        onAcceptFriendRequest={handleAcceptFriendRequest}
+                        onRejectFriendRequest={handleRejectFriendRequest}
                     />
                 </div>
 
@@ -1969,8 +2144,8 @@ export default function OxideApp() {
                 <div className="flex-1 flex flex-col min-w-0 relative transition-all h-full">
                     {(!activeChannelId && activeServerId !== 'dm' && !showAddFriend) || (activeServerId === 'dm' && !activeDmUser && !showAddFriend) ? (
                         <GlassCard className="flex-1 rounded-none md:rounded-3xl flex flex-col items-center justify-center text-center p-8 border-none md:border">
-                            <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/20 flex items-center justify-center mb-6">
-                                <Cpu size={56} className="text-orange-400/80" />
+                            <div className="w-28 h-28 rounded-2xl bg-gradient-to-br from-orange-500/20 to-red-600/20 border border-orange-500/20 flex items-center justify-center mb-6 overflow-hidden">
+                                <img src="/logo.png" alt="OxideSpace" className="w-20 h-20 object-cover rounded-xl" />
                             </div>
                             <h2 className="text-2xl font-bold text-white mb-2">Sinyal Bekleniyor...</h2>
                             <p className="text-zinc-400 max-w-sm">Sol taraftan bir kanal veya sohbet seçerek iletişime başla.</p>
@@ -2005,6 +2180,15 @@ export default function OxideApp() {
                                 </div>
                             </div>
                         </GlassCard>
+                    ) : channelType === 'canvas' && activeChannelId && activeServerId && activeServerId !== 'dm' ? (
+                        <CanvasChannelView
+                            channel={serverChannels.find((c: Channel) => c.id === activeChannelId) ?? null}
+                            channelName={serverChannels.find((c: Channel) => c.id === activeChannelId)?.name ?? 'Canvas'}
+                            supabase={supabase}
+                            currentUserId={authUser?.id}
+                            onSaveCanvasData={handleSaveCanvasData}
+                            addToast={addToast}
+                        />
                     ) : (
                         // CHAT / VOICE UI
                         <ChatArea
@@ -2063,12 +2247,18 @@ export default function OxideApp() {
                                 <p className="text-zinc-500 text-sm">Üye listesi yükleniyor...</p>
                             ) : (
                                 serverMembers.map((member) => (
-                                    <div key={member.id} className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group">
+                                    <div
+                                        key={member.id}
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => setSelectedMemberForProfile(member)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedMemberForProfile(member); } }}
+                                        className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 cursor-pointer transition-colors group"
+                                    >
                                         <Avatar
                                             src={member.avatar}
                                             size="sm"
                                             status={onlineUserIds.has(member.id) ? 'online' : 'idle'}
-                                            onClick={undefined}
                                         />
                                         <div className="min-w-0">
                                             <div className="font-medium text-sm text-zinc-200 truncate">{member.username}</div>
@@ -2253,6 +2443,16 @@ export default function OxideApp() {
                                 </div>
                                 {newChannelType === 'voice' && <CheckCircle size={20} className="text-orange-500" />}
                             </div>
+                            <div onClick={() => setNewChannelType('canvas')} className={`flex items-center justify-between p-4 rounded-xl cursor-pointer border transition-all ${newChannelType === 'canvas' ? 'bg-orange-500/20 border-orange-500' : 'bg-black/20 border-white/5 hover:bg-white/5'}`}>
+                                <div className="flex items-center gap-3">
+                                    <Layout size={24} className="text-zinc-300" />
+                                    <div>
+                                        <div className="font-bold text-white">Tasarım / Canvas</div>
+                                        <div className="text-xs text-zinc-400">UI/UX, wireframe, Penpot paylaşımı.</div>
+                                    </div>
+                                </div>
+                                {newChannelType === 'canvas' && <CheckCircle size={20} className="text-orange-500" />}
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -2372,7 +2572,15 @@ export default function OxideApp() {
                                     })()}
                                     <button
                                         type="button"
-                                        onClick={() => { navigator.clipboard.writeText(`${user.username}${user.discriminator}`); addToast('Etiket kopyalandı', 'success'); }}
+                                        onClick={async () => {
+                                            const tag = `${user.username}${user.discriminator}`;
+                                            try {
+                                                await navigator.clipboard.writeText(tag);
+                                                addToast('Etiket kopyalandı', 'success');
+                                            } catch {
+                                                addToast('Kopyalama başarısız', 'error');
+                                            }
+                                        }}
                                         className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1.5 transition-colors"
                                     >
                                         <Copy size={12} /> Etiketi kopyala
@@ -2479,7 +2687,11 @@ export default function OxideApp() {
                                         </div>
                                         <div className="min-w-0">
                                             <div className="text-sm font-medium text-white">OxideSpace üyesi</div>
-                                            <div className="text-xs text-zinc-500">Katılım tarihi yakında</div>
+                                            <div className="text-xs text-zinc-500">
+                                                {authUser?.created_at
+                                                    ? `Katılım: ${new Date(authUser.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}`
+                                                    : '—'}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -2544,6 +2756,111 @@ export default function OxideApp() {
                         )}
                     </div>
                 </div>
+            </Modal>
+
+            {/* Üye profili modalı (sağ panelden tıklanınca) */}
+            <Modal
+                isOpen={!!selectedMemberForProfile}
+                onClose={() => setSelectedMemberForProfile(null)}
+                title="Üye profili"
+            >
+                {selectedMemberForProfile && (
+                    <div className="space-y-6">
+                        <div className="flex items-center gap-4">
+                            <Avatar
+                                src={selectedMemberForProfile.avatar}
+                                size="xl"
+                                status={onlineUserIds.has(selectedMemberForProfile.id) ? 'online' : 'idle'}
+                                className="rounded-2xl"
+                            />
+                            <div className="min-w-0">
+                                <h3 className="text-lg font-bold text-white truncate">{selectedMemberForProfile.username}</h3>
+                                <p className="text-sm text-zinc-400">
+                                    {selectedMemberForProfile.username}#{selectedMemberForProfile.discriminator || selectedMemberForProfile.id.substring(0, 4)}
+                                </p>
+                                <p className="text-sm text-zinc-500">
+                                    {selectedMemberForProfile.role === 'owner' ? 'Yönetici 👑' : 'Topluluk Üyesi'}
+                                </p>
+                                <span className={`inline-flex items-center gap-1.5 mt-1 px-2 py-0.5 rounded-full text-xs font-medium ${onlineUserIds.has(selectedMemberForProfile.id) ? 'bg-green-500/20 text-green-400' : 'bg-zinc-500/20 text-zinc-400'}`}>
+                                    <span className={`w-2 h-2 rounded-full ${onlineUserIds.has(selectedMemberForProfile.id) ? 'bg-green-500' : 'bg-zinc-500'}`} />
+                                    {onlineUserIds.has(selectedMemberForProfile.id) ? 'Çevrimiçi' : 'Çevrimdışı'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {requestStatusWithSelected === 'accepted' && (
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenDmWithMemberIfFriend(selectedMemberForProfile)}
+                                    className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 transition-colors font-medium text-sm"
+                                >
+                                    <MessageCircle size={18} />
+                                    Mesaj Gönder
+                                </button>
+                            )}
+                            {requestStatusWithSelected === 'pending_sent' && (
+                                <p className="text-center py-2 text-sm text-zinc-400">Arkadaşlık isteği gönderildi. Kabul etmelerini bekle.</p>
+                            )}
+                            {requestStatusWithSelected === 'pending_received' && (
+                                <div className="flex gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const req = friendRequestsIncoming.find(r => r.from_user_id === selectedMemberForProfile.id);
+                                            if (req) await handleAcceptFriendRequest(selectedMemberForProfile.id, req.profiles);
+                                            setSelectedMemberForProfile(null);
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-green-600/20 text-green-400 border border-green-600/30 hover:bg-green-600/30 font-medium text-sm"
+                                    >
+                                        <Check size={18} />
+                                        Kabul Et
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={async () => {
+                                            const req = friendRequestsIncoming.find(r => r.from_user_id === selectedMemberForProfile.id);
+                                            if (req) await handleRejectFriendRequest(req.id);
+                                            setRequestStatusWithSelected(null);
+                                        }}
+                                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 text-zinc-400 border border-white/10 hover:bg-white/10 font-medium text-sm"
+                                    >
+                                        <X size={18} />
+                                        Reddet
+                                    </button>
+                                </div>
+                            )}
+                            {requestStatusWithSelected === null && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSendFriendRequest(selectedMemberForProfile)}
+                                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 hover:bg-orange-500/30 transition-colors font-medium text-sm"
+                                    >
+                                        <UserPlus size={18} />
+                                        Arkadaş Ekle
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => handleOpenDmWithMemberIfFriend(selectedMemberForProfile)}
+                                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-white/5 text-zinc-300 border border-white/10 hover:bg-white/10 transition-colors font-medium text-sm"
+                                    >
+                                        <MessageCircle size={18} />
+                                        Mesaj Gönder
+                                    </button>
+                                </>
+                            )}
+                        </div>
+
+                        <div className="pt-4 border-t border-white/5">
+                            <h4 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-3">Aktivite</h4>
+                            <div className="bg-white/5 border border-white/5 rounded-xl p-4">
+                                <p className="text-sm text-zinc-400">Şu an görüntülenen bir aktivite yok.</p>
+                                <p className="text-xs text-zinc-500 mt-1">Müzik, oyun veya uygulama durumu henüz paylaşılmadı.</p>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </Modal>
 
             {/* ... (Existing Settings Modal Code) */}
@@ -2898,8 +3215,9 @@ export default function OxideApp() {
                                                                 analyser.fftSize = 256;
                                                                 analyser.smoothingTimeConstant = 0.8;
                                                                 const dataArray = new Uint8Array(analyser.frequencyBinCount);
-                                                                
                                                                 let animationFrameId: number;
+                                                                const throttleMs = 80;
+                                                                let lastUpdate = 0;
                                                                 const updateLevel = () => {
                                                                     if (!isMicTesting) {
                                                                         if (animationFrameId) cancelAnimationFrame(animationFrameId);
@@ -2908,9 +3226,13 @@ export default function OxideApp() {
                                                                         return;
                                                                     }
                                                                     analyser.getByteFrequencyData(dataArray);
-                                                                    const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
-                                                                    const normalizedLevel = Math.min((average / 255) * 100 * (inputVolume / 100), 100);
-                                                                    setMicTestLevel(normalizedLevel);
+                                                                    const now = Date.now();
+                                                                    if (now - lastUpdate >= throttleMs) {
+                                                                        lastUpdate = now;
+                                                                        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+                                                                        const normalizedLevel = Math.min((average / 255) * 100 * (inputVolume / 100), 100);
+                                                                        setMicTestLevel(normalizedLevel);
+                                                                    }
                                                                     animationFrameId = requestAnimationFrame(updateLevel);
                                                                 };
                                                                 updateLevel();

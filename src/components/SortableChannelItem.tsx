@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Hash, Radio, ChevronDown, Trash2 } from 'lucide-react';
+import { Hash, Radio, Layout, ChevronDown, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Channel, Server, User } from '../types';
@@ -81,6 +81,8 @@ export const SortableChannelItem = React.memo(({ channel, isActive, onClick, onD
             >
                 {channel.type === 'text'
                     ? <Hash size={18} className={isActive ? 'text-orange-400' : 'opacity-50'} />
+                    : channel.type === 'canvas'
+                    ? <Layout size={18} className={isActive ? 'text-orange-400' : 'opacity-50'} />
                     : <Radio size={18} className={isActive ? 'text-red-400' : 'opacity-50'} />}
                 <span className="font-medium text-sm truncate select-none flex-1">{channel.name}</span>
                 {canManage && (

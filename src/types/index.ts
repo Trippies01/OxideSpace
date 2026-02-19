@@ -16,6 +16,10 @@ export interface Channel {
     category: string;
     server_id?: string;
     position?: number;
+    /** For type=canvas: Penpot view/share URL or other design tool embed. */
+    canvas_url?: string | null;
+    /** For type=canvas: in-app editor state (e.g. Excalidraw scene JSON). */
+    canvas_data?: Record<string, unknown> | null;
 }
 
 export interface Message {

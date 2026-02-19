@@ -95,7 +95,7 @@ export function UIProvider({ children }: { children: ReactNode }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [view, setView] = useState('setup');
+  const [view, setView] = useState('app');
   const [modals, setModals] = useState({
     create: false,
     joinServer: false,

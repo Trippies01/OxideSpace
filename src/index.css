@@ -49,6 +49,31 @@ body {
   50% { opacity: 0.5; }
 }
 
+/* Landing: yavaş hareket eden blobs */
+@keyframes blob-slow {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(4%, -5%) scale(1.05); }
+  66% { transform: translate(-3%, 4%) scale(0.98); }
+}
+@keyframes blob-slow-reverse {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(-4%, 3%) scale(0.97); }
+  66% { transform: translate(3%, -4%) scale(1.04); }
+}
+@keyframes blob-slower {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(3%, -2%); }
+}
+.animate-blob-slow {
+  animation: blob-slow 38s ease-in-out infinite;
+}
+.animate-blob-slow-reverse {
+  animation: blob-slow-reverse 45s ease-in-out infinite;
+}
+.animate-blob-slower {
+  animation: blob-slower 52s ease-in-out infinite;
+}
+
 /* Reduce motion for better performance */
 @media (prefers-reduced-motion: reduce) {
   *,

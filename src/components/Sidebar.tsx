@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Settings, ChevronDown, FolderPlus, Mic, MicOff, Volume2, VolumeX } from 'lucide-react';
+import { Plus, Settings, ChevronDown, FolderPlus, Mic, MicOff, Volume2, VolumeX, Check, X, UserPlus } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { livekitService } from '../lib/livekit';
@@ -38,6 +38,9 @@ interface SidebarProps {
     setVoiceChannelUsers: React.Dispatch<React.SetStateAction<any[]>>;
     onDeleteChannel: (channelId: string) => void;
     onlineUserIds?: Set<string>;
+    friendRequestsIncoming?: Array<{ id: string; from_user_id: string; profiles: { id: string; username: string | null; avatar_url: string | null } | null }>;
+    onAcceptFriendRequest?: (fromUserId: string, fromProfile?: { username: string | null; avatar_url: string | null } | null) => void;
+    onRejectFriendRequest?: (requestId: string) => void;
 }
 
 export const Sidebar = React.memo(({
@@ -66,7 +69,10 @@ export const Sidebar = React.memo(({
     fetchVoiceChannelUsers,
     setVoiceChannelUsers,
     onDeleteChannel,
-    onlineUserIds = new Set()
+    onlineUserIds = new Set(),
+    friendRequestsIncoming = [],
+    onAcceptFriendRequest,
+    onRejectFriendRequest,
 }: SidebarProps) => {
     return (
         <GlassCard className="h-full flex flex-col rounded-none md:rounded-3xl overflow-hidden border-y-0 md:border-y border-l-0 md:border-l">
@@ -76,6 +82,22 @@ export const Sidebar = React.memo(({
                         <h2 className="text-xl font-bold">Mesajlar</h2>
                         <Button onClick={() => setShowAddFriend(true)} className="h-8 px-3 py-0 bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/30 text-xs">Arkadaş Ekle</Button>
                     </div>
+
+                    {friendRequestsIncoming.length > 0 && (
+                        <div className="mb-4 space-y-2">
+                            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2">Arkadaşlık istekleri ({friendRequestsIncoming.length})</h3>
+                            {friendRequestsIncoming.map((req) => (
+                                <div key={req.id} className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/5">
+                                    <Avatar src={req.profiles?.avatar_url ?? `https://api.dicebear.com/7.x/notionists/svg?seed=${req.from_user_id}`} size="sm" />
+                                    <span className="flex-1 text-sm font-medium text-white truncate">{req.profiles?.username ?? 'Kullanıcı'}</span>
+                                    <div className="flex gap-1 shrink-0">
+                                        <button type="button" onClick={() => onAcceptFriendRequest?.(req.from_user_id, req.profiles)} className="p-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30" title="Kabul et"><Check size={16} /></button>
+                                        <button type="button" onClick={() => onRejectFriendRequest?.(req.id)} className="p-1.5 rounded-lg bg-white/5 text-zinc-400 hover:bg-white/10" title="Reddet"><X size={16} /></button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
 
                     <div className="space-y-1 overflow-y-auto pr-1 flex-1 custom-scrollbar">
                         {filteredFriends.length === 0 ? <p className="text-zinc-500 text-center text-sm mt-4">Kimse bulunamadı.</p> : filteredFriends.map((friend: any) => (
@@ -164,6 +186,11 @@ export const Sidebar = React.memo(({
                                                                 setActiveChannelId(channel.id);
                                                                 setChannelType('text');
                                                                 if (activeServerId && setLastTextChannelIdForServer) setLastTextChannelIdForServer(activeServerId, channel.id);
+                                                                return;
+                                                            }
+                                                            if (channel.type === 'canvas') {
+                                                                setActiveChannelId(channel.id);
+                                                                setChannelType('canvas');
                                                                 return;
                                                             }
 
@@ -261,12 +288,15 @@ const UserMiniBar = React.memo(({ user, setModals }: { user: User; setModals: Re
                     <div className="text-zinc-500">{user.discriminator}</div>
                 </div>
             </div>
-            <div className="flex gap-1">
-                <button onClick={() => setVoiceState(p => ({ ...p, mic: !p.mic }))} className={`p-1.5 rounded-lg ${!voiceState.mic ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`}>
+            <div className="flex items-center gap-1">
+                <button onClick={() => setVoiceState(p => ({ ...p, mic: !p.mic }))} className={`p-1.5 rounded-lg ${!voiceState.mic ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`} title="Mikrofon">
                     {!voiceState.mic ? <MicOff size={16} /> : <Mic size={16} />}
                 </button>
-                <button onClick={() => setVoiceState(p => ({ ...p, deafen: !p.deafen }))} className={`p-1.5 rounded-lg ${voiceState.deafen ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`}>
+                <button onClick={() => setVoiceState(p => ({ ...p, deafen: !p.deafen }))} className={`p-1.5 rounded-lg ${voiceState.deafen ? 'bg-red-500/20 text-red-500' : 'hover:bg-white/10 text-zinc-400'}`} title="Ses">
                     {voiceState.deafen ? <VolumeX size={16} /> : <Volume2 size={16} />}
+                </button>
+                <button onClick={() => setModals((m: any) => ({ ...m, settings: true }))} className="p-1.5 rounded-lg hover:bg-white/10 text-zinc-400" title="Ayarlar">
+                    <Settings size={16} />
                 </button>
             </div>
         </div>

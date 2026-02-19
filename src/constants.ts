@@ -23,3 +23,6 @@ export const AUTH_CHECK_TIMEOUT_MS = 8000;
 // Giriş / güvenlik
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 72;
+
+/** İlk giriş sayfasında "Kurulumu indir" butonunun linki (GitHub Releases veya doğrudan .exe/.msi). */
+export const SETUP_DOWNLOAD_URL = 'https://github.com/Trippies01/OxideSpace/releases';

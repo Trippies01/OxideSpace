@@ -152,7 +152,7 @@ export function useServerManagement() {
    * Channel oluştur
    */
   const createChannel = useCallback(
-    async (serverId: string, name: string, type: 'text' | 'voice', category?: string) => {
+    async (serverId: string, name: string, type: 'text' | 'voice' | 'canvas', category?: string) => {
       try {
         const { data: maxRow } = await supabase
           .from('channels')

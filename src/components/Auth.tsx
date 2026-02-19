@@ -1,8 +1,24 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../hooks/useSupabase';
-import { Loader2, Zap, Mail, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, Mail, Lock, AlertCircle, ArrowLeft } from 'lucide-react';
 import { PASSWORD_MIN_LENGTH } from '../constants';
+
+/** OAuth callback hatalarını URL'den okuyup kullanıcıya gösterir; URL'i temizler. */
+function useOAuthCallbackError(setError: (s: string | null) => void) {
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const errorCode = params.get('error_code');
+        const errorDesc = params.get('error_description') || '';
+        if (params.get('error') && (errorCode === 'bad_oauth_state' || errorDesc.includes('state'))) {
+            setError(
+                'Google girişi zaman aşımına uğradı veya yönlendirme adresi uyuşmuyor. ' +
+                'Supabase → Authentication → URL Configuration bölümünde Site URL ve Redirect URLs\'in bu uygulamanın adresiyle aynı olduğundan emin olun (ör. http://localhost:5173). Ardından tekrar deneyin.'
+            );
+            window.history.replaceState({}, '', window.location.pathname || '/');
+        }
+    }, [setError]);
+}
 
 function getAuthErrorMessage(err: unknown): string {
     if (!err || typeof err !== 'object') return 'Bir hata oluştu.';
@@ -40,6 +56,8 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const { signIn, signUp, signInWithGoogle, resetPasswordForEmail } = useAuth();
+
+    useOAuthCallbackError(setError);
 
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -125,8 +143,8 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
                 <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] bg-red-600/20 rounded-full blur-[120px]" />
                 <div className="w-full max-w-md relative z-10">
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-3xl border border-white/5 mb-6">
-                            <Zap size={40} className="text-orange-500" fill="currentColor" fillOpacity={0.2} />
+                        <div className="inline-flex items-center justify-center p-1 bg-white/5 rounded-3xl border border-white/5 mb-6">
+                            <img src="/logo.png" alt="OxideSpace" className="w-14 h-14 rounded-2xl object-cover" />
                         </div>
                         <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Oxide<span className="text-orange-500">Space</span></h1>
                         <p className="text-zinc-500">Şifre sıfırlama</p>
@@ -186,8 +204,8 @@ export default function Auth({ onLogin }: { onLogin: () => void }) {
 
             <div className="w-full max-w-md relative z-10">
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center p-4 bg-gradient-to-br from-orange-500/10 to-red-500/10 rounded-3xl border border-white/5 mb-6 shadow-2xl shadow-orange-500/5">
-                        <Zap size={40} className="text-orange-500" fill="currentColor" fillOpacity={0.2} />
+                    <div className="inline-flex items-center justify-center p-1 bg-white/5 rounded-3xl border border-white/5 mb-6 shadow-2xl shadow-orange-500/5">
+                        <img src="/logo.png" alt="OxideSpace" className="w-14 h-14 rounded-2xl object-cover" />
                     </div>
                     <h1 className="text-4xl font-black text-white mb-2 tracking-tight">Oxide<span className="text-orange-500">Space</span></h1>
                     <p className="text-zinc-500">Dijital evrenine giriş yap.</p>

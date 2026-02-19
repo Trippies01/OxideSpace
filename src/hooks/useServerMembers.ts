@@ -4,6 +4,7 @@ import { useSupabase } from './useSupabase';
 export interface ServerMemberDisplay {
   id: string;
   username: string;
+  discriminator: string | null;
   avatar: string;
   role: string;
 }
@@ -40,13 +41,13 @@ export function useServerMembers(serverId: string | null) {
       const userIds = memberRows.map((r) => r.user_id);
       const { data: profileRows, error: profileErr } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, username, avatar_url, discriminator')
         .in('id', userIds);
 
       if (profileErr) throw profileErr;
-      const profileMap = new Map<string, { username: string | null; avatar_url: string | null }>();
-      (profileRows || []).forEach((p: { id: string; username: string | null; avatar_url: string | null }) => {
-        profileMap.set(p.id, { username: p.username, avatar_url: p.avatar_url });
+      const profileMap = new Map<string, { username: string | null; avatar_url: string | null; discriminator: string | null }>();
+      (profileRows || []).forEach((p: { id: string; username: string | null; avatar_url: string | null; discriminator: string | null }) => {
+        profileMap.set(p.id, { username: p.username, avatar_url: p.avatar_url, discriminator: p.discriminator });
       });
 
       const list: ServerMemberDisplay[] = memberRows.map((row) => {
@@ -54,6 +55,7 @@ export function useServerMembers(serverId: string | null) {
         return {
           id: row.user_id,
           username: profile?.username ?? 'Kullanıcı',
+          discriminator: profile?.discriminator ?? null,
           avatar: profile?.avatar_url ?? `https://api.dicebear.com/7.x/notionists/svg?seed=${row.user_id}`,
           role: row.role || 'member',
         };

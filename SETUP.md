@@ -176,6 +176,8 @@ Google girişinden sonra kullanıcı **uygulamanın** açık olduğu adrese dön
 
 Bunlar olmadan “redirect_uri” hatası alabilirsin.
 
+**Önemli (bad_oauth_state):** Uygulama Vite ile **5173** portunda çalışır. Supabase Site URL ve Redirect URLs'de **http://localhost:5173** kullanın; localhost:3000 kullanmayın. 3000 yazılıysa "Bağlanmayı reddetti" ve bad_oauth_state hatası alırsınız.
+
 ---
 
 #### Özet

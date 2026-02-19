@@ -196,6 +196,41 @@ export interface Database {
           uses?: number;
         };
       };
+      notifications: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string | null;
+          read: boolean;
+          created_at: string;
+          link_url: string | null;
+          extra: unknown;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body?: string | null;
+          read?: boolean;
+          created_at?: string;
+          link_url?: string | null;
+          extra?: unknown;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          type?: string;
+          title?: string;
+          body?: string | null;
+          read?: boolean;
+          created_at?: string;
+          link_url?: string | null;
+          extra?: unknown;
+        };
+      };
       dm_threads: {
         Row: {
           id: string;
