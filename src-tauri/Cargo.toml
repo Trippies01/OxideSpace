@@ -1,6 +1,6 @@
 [package]
 name = "oxide-app"
-version = "0.1.0"
+version = "0.2.0"
 description = "Oxide Space - Discord benzeri ses/sohbet uygulaması"
 authors = ["you"]
 edition = "2021"

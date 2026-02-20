@@ -1,1 +1,64 @@
-{"productName":"Oxide Space","version":"0.1.0","identifier":"com.oxide.space","build":{"beforeDevCommand":"npm run dev","devUrl":"http://127.0.0.1:5173","beforeBuildCommand":"npm run build","frontendDist":"../dist"},"app":{"windows":[{"title":"Oxide Space","width":1280,"height":800,"minWidth":800,"minHeight":600,"resizable":true,"fullscreen":false}],"security":{"csp":null}},"bundle":{"active":true,"targets":["msi","nsis"],"createUpdaterArtifacts":false,"icon":["icons/icon.ico","icons/icon.png"],"windows":{"certificateThumbprint":null,"digestAlgorithm":"sha256","timestampUrl":"","webviewInstallMode":{"type":"embedBootstrapper","silent":true},"nsis":{"installerIcon":"icons/icon.ico"}},"longDescription":"Discord benzeri ses ve metin sohbet uygulaması.","shortDescription":"Oxide Space - Ses ve sohbet","category":"SocialNetworking","macOS":{"minimumSystemVersion":"10.13"},"linux":{"appimage":{"bundleMediaFramework":false}}},"plugins":{"updater":{"endpoints":["https://raw.githubusercontent.com/Trippies01/OxideSpace/main/updates/latest.json"],"pubkey":""}}}
+{
+  "productName": "Oxide Space",
+  "version": "0.2.0",
+  "identifier": "com.oxide.space",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:5173",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "Oxide Space",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["msi", "nsis"],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "windows": {
+      "certificateThumbprint": null,
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "",
+      "webviewInstallMode": {
+        "type": "embedBootstrapper",
+        "silent": true
+      },
+      "nsis": {
+        "installerIcon": "icons/icon.ico"
+      }
+    },
+    "longDescription": "Discord benzeri ses ve metin sohbet uygulaması.",
+    "shortDescription": "Oxide Space - Ses ve sohbet",
+    "category": "SocialNetworking",
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": false
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://raw.githubusercontent.com/Trippies01/OxideSpace/main/updates/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDAxQkRBQUVBMjA2RTQ1RTcKUldUblJXNGc2cXE5QVJpUDkvMnBGLys1YVAxcWV1aG9lVWNRV2tFamRkbE1NZjN2N3NSUGgzSzIK"
+    }
+  }
+}

@@ -1,11 +1,11 @@
 {
-  "version": "0.1.0",
-  "notes": "İlk sürüm.",
-  "pub_date": "2025-01-01T00:00:00Z",
+  "version": "0.2.0",
+  "notes": "RNNoise gürültü bastırma ve otomatik güncelleme sistemi eklendi.",
+  "pub_date": "2026-02-20T13:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "signature": "BURAYA_IMZA_EKLEYECEKSIN",
-      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.1.0/Oxide.App_0.1.0_x64-setup.nsis.zip"
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUblJXNGc2cXE5QVJJdlh5all2TnJSTVlEcUZiMEdiQ3IzY2NFSzZwaXp4QTREN0lnUEphbHRuL1Y1UDgvWGZjclJVNERRb1pGZUdWNkwwUmt3K2lCZ0tnU2hYRE9xRHdnPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTgyMjk2CWZpbGU6T3hpZGUgU3BhY2VfMC4yLjBfeDY0LXNldHVwLmV4ZQpBRmlmdjdjTkRFVmF1YzZ1MHJOdUhqazFHNU8vVktrRmQ2ckN2UW9vL0lTRnk3Z1dnR0kxVHJXQzdyMWF4T044MGtQWXdOQmo2bncvQ2xRdzBmd3pEZz09Cg==",
+      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.2.0/Oxide.Space_0.2.0_x64-setup.exe"
     }
   }
 }
