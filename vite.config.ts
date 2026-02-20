@@ -18,4 +18,8 @@ export default defineConfig({
         },
     },
     envPrefix: ['VITE_', 'TAURI_'],
+    optimizeDeps: {
+        exclude: ['@jitsi/rnnoise-wasm'],
+    },
+    assetsInclude: ['**/*.wasm'],
 })

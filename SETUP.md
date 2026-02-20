@@ -26,7 +26,7 @@ Bu proje Tauri ile masaüstü uygulaması olarak derlenir. **Windows 10 (64-bit)
 5. Kurulum bitince **Finish** / **Bitir** desin.
 6. Uygulama **Başlat menüsünde** “Oxide Space” adıyla görünür; oradan açabilir veya masaüstü kısayolunu kullanabilir.
 
-**Not:** İlk çalıştırmada Windows Defender veya SmartScreen “Tanınmıyor” uyarısı verebilir. “Yine de çalıştır” / “Ek bilgi” → “Yine de çalıştır” seçilerek açılabilir (imza satın alınmadığı için normaldir).
+**Not:** İndirme veya ilk çalıştırmada tarayıcı/Windows “Şüpheli indirme engellendi” veya SmartScreen “Tanınmıyor” uyarısı verebilir. Bu, kurulum dosyasının **kod imzası** olmamasından kaynaklanır. Uyarıyı tamamen kaldırmak için kurulumu bir **kod imzalama sertifikası** ile imzalamanız gerekir; adımlar için **[docs/WINDOWS_CODE_SIGNING.md](docs/WINDOWS_CODE_SIGNING.md)** dosyasına bakın. İmza olmadan kullanıcı “Yine de çalıştır” / “Ek bilgi” → “Yine de çalıştır” ile devam edebilir.
 
 **Özet (arkadaşına yazıp atabileceğin):**
 > Oxide Space’i kurmak için: Gönderdiğim .msi veya .exe dosyasını çift tıkla, kurulumu tamamla. Kurulumdan sonra Başlat menüsünden “Oxide Space” yazarak açabilirsin. İlk açılışta Windows uyarı verirse “Yine de çalıştır” de.

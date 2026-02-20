@@ -144,6 +144,7 @@ import { useServerContext, useVoiceContext, useUIContext, useUserContext, useMes
 import { voiceService } from './lib/voice';
 import { livekitService, type MediaDevice } from './lib/livekit';
 import { isKoalaAvailable, createKoalaFilter, releaseKoalaFilter } from './lib/koalaFilter';
+import { isRnnoiseAvailable, createRnnoiseFilter, releaseRnnoiseFilter } from './lib/rnnoiseFilter';
 
 export default function OxideApp() {
     // --- CONTEXT HOOKS ---
@@ -629,6 +630,9 @@ export default function OxideApp() {
     const [koalaEnabled, setKoalaEnabled] = useState(() => {
         try { return localStorage.getItem('oxide_koala_enabled') === 'true'; } catch { return false; }
     });
+    const [rnnoiseEnabled, setRnnoiseEnabled] = useState(() => {
+        try { return localStorage.getItem('oxide_rnnoise_enabled') === 'true'; } catch { return false; }
+    });
     const [videoQuality, setVideoQuality] = useState('720p');
     const [cameraPreview, setCameraPreview] = useState(false);
     const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -741,25 +745,49 @@ export default function OxideApp() {
         }
     }, [videoInputDevice]);
 
-    // Koala gürültü bastırma: filtreyi ayarla ve mikrofon açıksa yeniden uygula
+    // Gelişmiş gürültü bastırma: RNNoise (açık kaynak) veya Koala (ticari)
+    // Öncelik: Koala > RNNoise > Hiçbiri
     useEffect(() => {
         try { localStorage.setItem('oxide_koala_enabled', String(koalaEnabled)); } catch { /* ignore */ }
+        try { localStorage.setItem('oxide_rnnoise_enabled', String(rnnoiseEnabled)); } catch { /* ignore */ }
+
         const reapplyMic = () => {
             const room = livekitService.getRoom();
             if (!room) return;
             const pub = room.localParticipant.getTrackPublication(Track.Source.Microphone);
             if (pub?.track) livekitService.enableAudio(false).then(() => livekitService.enableAudio(true)).catch(() => {});
         };
-        if (koalaEnabled && isKoalaAvailable()) {
-            createKoalaFilter().then((filter) => {
-                if (filter) { livekitService.setAudioFilter(filter); reapplyMic(); }
-            }).catch(() => {});
-        } else {
+
+        const applyFilter = async () => {
+            // Öncelik 1: Koala (etkinse ve mevcutsa)
+            if (koalaEnabled && isKoalaAvailable()) {
+                const filter = await createKoalaFilter();
+                if (filter) {
+                    livekitService.setAudioFilter(filter);
+                    reapplyMic();
+                    return;
+                }
+            }
+
+            // Öncelik 2: RNNoise (etkinse)
+            if (rnnoiseEnabled && isRnnoiseAvailable()) {
+                const filter = await createRnnoiseFilter();
+                if (filter) {
+                    livekitService.setAudioFilter(filter);
+                    reapplyMic();
+                    return;
+                }
+            }
+
+            // Hiçbiri etkin değil
             livekitService.setAudioFilter(null);
             reapplyMic();
-        }
+        };
+
+        applyFilter().catch(() => {});
+
         return () => { livekitService.setAudioFilter(null); };
-    }, [koalaEnabled]);
+    }, [koalaEnabled, rnnoiseEnabled]);
 
     useEffect(() => {
         if (audioOutputDevice) {
@@ -3104,7 +3132,7 @@ export default function OxideApp() {
                                                 <div className="flex items-center justify-between p-3 bg-black/40 border border-white/10 rounded-xl">
                                                     <div>
                                                         <div className="font-medium text-white">Gürültü Bastırma</div>
-                                                        <div className="text-xs text-zinc-500">Arka plan gürültüsünü azaltır</div>
+                                                        <div className="text-xs text-zinc-500">Arka plan gürültüsünü azaltır (tarayıcı yerleşik)</div>
                                                     </div>
                                                     <label className="relative inline-flex items-center cursor-pointer">
                                                         <input
@@ -3114,6 +3142,27 @@ export default function OxideApp() {
                                                             className="sr-only peer"
                                                         />
                                                         <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+                                                    </label>
+                                                </div>
+                                                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-orange-500/10 to-red-500/10 border border-orange-500/30 rounded-xl">
+                                                    <div>
+                                                        <div className="font-medium text-white flex items-center gap-2">
+                                                            Krisp Seviye Gürültü Engelleme
+                                                            <span className="text-[10px] px-1.5 py-0.5 bg-orange-500/20 text-orange-400 rounded-full uppercase font-bold">AI</span>
+                                                        </div>
+                                                        <div className="text-xs text-zinc-400">RNNoise ML ile profesyonel gürültü bastırma (klavye, fan, arka plan sesleri)</div>
+                                                    </div>
+                                                    <label className="relative inline-flex items-center cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={rnnoiseEnabled}
+                                                            onChange={(e) => {
+                                                                setRnnoiseEnabled(e.target.checked);
+                                                                if (e.target.checked && koalaEnabled) setKoalaEnabled(false);
+                                                            }}
+                                                            className="sr-only peer"
+                                                        />
+                                                        <div className="w-11 h-6 bg-zinc-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orange-500 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-gradient-to-r peer-checked:from-orange-500 peer-checked:to-red-500"></div>
                                                     </label>
                                                 </div>
                                                 {isKoalaAvailable() && (
