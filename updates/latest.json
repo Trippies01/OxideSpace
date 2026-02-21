@@ -1,11 +1,11 @@
-﻿{
-    "platforms":  {
-                      "windows-x86_64":  {
-                                             "signature":  "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVUblJXNGc2cXE5QVd1Z25CTm5maEtFUXdZWmIxM0JvNnQrMWRPdzB3VWZ2ZjNJQjJ0Q0w0V1hKSzM0N0psR1pmRjFIVU1KWUJlSWMrUnpVVkNaWVYvMk5NU2R1eXIzeWdJPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNTg2MjY1CWZpbGU6T3hpZGUgU3BhY2VfMC4yLjBfeDY0LXNldHVwLmV4ZQpTdVk2aVNsanpjUmk5TzRBT3dGKzQxdkowUUN3ekFlSkI3M3FGZWhxKzROMlBMM3VtTGo0akxYbzdMdW42Sm84K0VXMEtvR2c4ZHhJaEtib0FXTWpCZz09Cg==",
-                                             "url":  "https://github.com/Trippies01/OxideSpace/releases/download/v0.2.0/Oxide.Space_0.2.0_x64-setup.exe"
-                                         }
-                  },
-    "pub_date":  "2026-02-20T14:00:00Z",
-    "version":  "0.2.0",
-    "notes":  "RNNoise gurultu bastirma ve otomatik guncelleme sistemi eklendi."
+{
+  "platforms": {
+    "windows-x86_64": {
+      "signature": "dW50cnVzdGVkIGNvbW1lbnQ6IHNpZ25hdHVyZSBmcm9tIHRhdXJpIHNlY3JldCBrZXkKUlVSdVpDNWxRQnBWeEhxVFRERVFMRmUxT2YxU3ZGWGk1NTM2YjQzT3NiaDFmV3hyV0FGV1hFczdUM1hTNEh2dTJHRVovSEcxYVRLYzR3N0IzcnQ4bzJBRm1tL3NTNENReUFVPQp0cnVzdGVkIGNvbW1lbnQ6IHRpbWVzdGFtcDoxNzcxNjc1NjEzCWZpbGU6T3hpZGUgU3BhY2VfMC4zLjBfeDY0LXNldHVwLmV4ZQpQWVNCYlR4WHZWR3MxTTNvb1p6aDVZSlpsRW1sVG1NRFYrL2FWWlBaSHBpQTBUZDdLOUMwQlR6UTFyQUJCVUVyc1EwdnpVYml2dFZ2cmVaQkFkMWNDQT09Cg==",
+      "url": "https://github.com/Trippies01/OxideSpace/releases/download/v0.3.0/Oxide.Space_0.3.0_x64-setup.exe"
+    }
+  },
+  "pub_date": "2026-02-21T12:00:00Z",
+  "version": "0.3.0",
+  "notes": "DM gorusme ekrani, gelen arama, muzik kaldirildi."
 }
