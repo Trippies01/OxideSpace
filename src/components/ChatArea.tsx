@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
-import { Hash, Radio, LayoutGrid, MessageCircle, Plus, Smile, Send, Trash2, Loader2, Pencil, Check, X, Search, Paperclip } from 'lucide-react';
+import { Hash, Radio, LayoutGrid, MessageCircle, Plus, Smile, Send, Trash2, Loader2, Pencil, Check, X, Search, Paperclip, Phone, PhoneOff } from 'lucide-react';
 import { Track } from 'livekit-client';
 import type { Message, User, Channel, VoiceState, VoiceChannelUser } from '../types';
 import { GlassCard } from './ui/GlassCard';
@@ -138,6 +138,9 @@ interface ChatAreaProps {
     onAttachmentSelect?: (file: File) => void;
     onAttachmentClear?: () => void;
     onOpenSettings?: () => void;
+    /** DM görünümünde "aranıyor" çubuğu (Discord tarzı) */
+    outgoingCall?: { toName: string } | null;
+    onCancelOutgoingCall?: () => void;
 }
 
 export const ChatArea = React.memo(({
@@ -178,7 +181,9 @@ export const ChatArea = React.memo(({
     attachmentName = '',
     onAttachmentSelect,
     onAttachmentClear,
-    onOpenSettings
+    onOpenSettings,
+    outgoingCall = null,
+    onCancelOutgoingCall,
 }: ChatAreaProps) => {
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const emojiPanelRef = React.useRef<HTMLDivElement>(null);
@@ -264,6 +269,23 @@ export const ChatArea = React.memo(({
                     </button>
                 </div>
             </div>
+
+            {/* Discord tarzı: DM görünümünde arama sırasında üstte ince çubuk */}
+            {activeServerId === 'dm' && outgoingCall && onCancelOutgoingCall && (
+                <div className="flex items-center justify-between px-4 py-2.5 mb-2 flex-shrink-0 rounded-xl bg-white/5 border border-white/10">
+                    <div className="flex items-center gap-2 text-zinc-300">
+                        <Phone size={18} className="text-orange-400 animate-pulse flex-shrink-0" />
+                        <span className="text-sm font-medium">{outgoingCall.toName} aranıyor...</span>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onCancelOutgoingCall}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-sm font-medium transition-colors"
+                    >
+                        <PhoneOff size={16} /> Kapat
+                    </button>
+                </div>
+            )}
 
             <GlassCard className="flex-1 rounded-none md:rounded-3xl overflow-hidden flex flex-col relative border-white/5 border-x-0 md:border-x border-b-0 md:border-b">
                 {channelType === 'voice' ? (

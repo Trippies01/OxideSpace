@@ -8,7 +8,8 @@ import {
     Volume2, Shield, CheckCircle, Loader2, Layout,
     AlertCircle, Moon, Sun,
     Speaker, Camera, PenLine, Save, Copy, Calendar,
-    Music, Code2, Award, Coffee, LogIn, Github, MessageCircle, UserPlus, Check
+    Music, Code2, Award, Coffee, LogIn, Github, MessageCircle, UserPlus, Check,
+    Download, ArrowDownCircle
 } from 'lucide-react';
 import { Track, RoomEvent } from 'livekit-client';
 import {
@@ -30,7 +31,10 @@ import type { Channel, Server } from './types';
 import { ChatArea } from './components/ChatArea';
 import { CanvasChannelView } from './components/CanvasChannelView';
 import { Sidebar } from './components/Sidebar';
-import { AppUpdateBanner } from './components/AppUpdateBanner';
+import { AddFriendView } from './components/AddFriendView';
+import { IncomingCallModal, type IncomingCallInfo } from './components/IncomingCallModal';
+import { DmCallView } from './components/DmCallView';
+import { useAppUpdate, isTauri } from './hooks/useAppUpdate';
 import { GlassCard } from './components/ui/GlassCard';
 import { Button } from './components/ui/Button';
 import { Avatar } from './components/ui/Avatar';
@@ -42,6 +46,10 @@ import { uploadMessageAttachment, uploadAvatar } from './lib/storage';
 // --- SABİT VERİLER VE YAPILANDIRMA ---
 
 const SERVER_FOLDERS_KEY = 'oxide_server_folders';
+const SIDEBAR_WIDTH_KEY = 'oxide_sidebar_width';
+const SIDEBAR_WIDTH_MIN = 240;
+const SIDEBAR_WIDTH_MAX = 480;
+const SIDEBAR_WIDTH_DEFAULT = 288;
 
 // Bildirim tipi (Supabase public.notifications ile uyumlu)
 export type AppNotification = {
@@ -138,7 +146,6 @@ import Auth from './components/Auth';
 import LandingPage from './components/LandingPage';
 import UsernameSetup from './components/UsernameSetup';
 import { useSupabase, useAuth, useProfile } from './hooks/useSupabase';
-import { isTauri } from './hooks/useAppUpdate';
 import { useVoiceChannel, useServerManagement, useTypingIndicator, useTypingDebounce, useOnlinePresence, useServerMembers, type ServerMemberDisplay } from './hooks';
 import { useServerContext, useVoiceContext, useUIContext, useUserContext, useMessageContext } from './contexts';
 import { voiceService } from './lib/voice';
@@ -253,14 +260,24 @@ export default function OxideApp() {
     } = useMessageContext();
 
     // --- LOCAL STATE (component-specific) ---
+    const appUpdate = useAppUpdate();
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [dmMessagesLoading, setDmMessagesLoading] = useState(false);
-    const [serverFolders, setServerFolders] = useState<{ id: string; name: string }[]>(() => {
+    const [sidebarWidth, setSidebarWidth] = useState(() => {
+        try {
+            const w = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+            if (w) { const n = parseInt(w, 10); if (n >= SIDEBAR_WIDTH_MIN && n <= SIDEBAR_WIDTH_MAX) return n; }
+        } catch { /* ignore */ }
+        return SIDEBAR_WIDTH_DEFAULT;
+    });
+    const [sidebarResizing, setSidebarResizing] = useState(false);
+    const [serverFolders, setServerFolders] = useState<{ id: string; name: string; icon_url?: string | null }[]>(() => {
         try {
             const raw = localStorage.getItem(SERVER_FOLDERS_KEY);
             if (!raw) return [];
             const data = JSON.parse(raw);
-            return Array.isArray(data.folders) ? data.folders : [];
+            const folders = Array.isArray(data.folders) ? data.folders : [];
+            return folders.map((f: any) => ({ id: f.id, name: f.name || 'Klasör', icon_url: f.icon_url ?? null }));
         } catch { return []; }
     });
     const [serverToFolder, setServerToFolder] = useState<Record<string, string>>(() => {
@@ -287,6 +304,20 @@ export default function OxideApp() {
     const [dropTargetFolderId, setDropTargetFolderId] = useState<string | null>(null);
     const [dropTargetUncategorized, setDropTargetUncategorized] = useState(false);
     const [dropTargetFolderOrderId, setDropTargetFolderOrderId] = useState<string | null>(null);
+    const [dropTargetServerId, setDropTargetServerId] = useState<string | null>(null);
+    const [createFolderFromDrop, setCreateFolderFromDrop] = useState<{ fromServerId: string; ontoServerId: string } | null>(null);
+    const [newFolderNameFromDrop, setNewFolderNameFromDrop] = useState('');
+    const [folderContextFolderId, setFolderContextFolderId] = useState<string | null>(null);
+    const [folderContextMenuPos, setFolderContextMenuPos] = useState({ x: 0, y: 0 });
+    const [editFolderModal, setEditFolderModal] = useState<{ folderId: string; name: string; icon_url: string | null } | null>(null);
+    const [dmSearchQuery, setDmSearchQuery] = useState('');
+    const [dmStatusFilter, setDmStatusFilter] = useState<'all' | 'online' | 'offline'>('all');
+    const [dmSortBy, setDmSortBy] = useState<'name_asc' | 'name_desc' | 'online_first'>('online_first');
+    const [incomingCall, setIncomingCall] = useState<IncomingCallInfo | null>(null);
+    const [incomingCallAccepting, setIncomingCallAccepting] = useState(false);
+    const [outgoingCall, setOutgoingCall] = useState<{ roomName: string; toUserId: string; toName: string; invitationId: string } | null>(null);
+    /** DM görüşmesi açıkken LiveKit oda adı (Discord tarzı çağrı ekranı için) */
+    const [dmCallRoomName, setDmCallRoomName] = useState<string | null>(null);
 
     useEffect(() => {
         try {
@@ -297,11 +328,28 @@ export default function OxideApp() {
             }));
         } catch (_) { /* ignore */ }
     }, [serverFolders, serverToFolder, collapsedFolderIds]);
+
+    useEffect(() => {
+        try { localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidth)); } catch (_) { /* ignore */ }
+    }, [sidebarWidth]);
+
+    useEffect(() => {
+        if (!sidebarResizing) return;
+        const onMove = (e: MouseEvent) => {
+            const w = Math.round(e.clientX);
+            if (w >= SIDEBAR_WIDTH_MIN && w <= SIDEBAR_WIDTH_MAX) setSidebarWidth(w);
+        };
+        const onUp = () => setSidebarResizing(false);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    }, [sidebarResizing]);
     const [pendingAttachment, setPendingAttachment] = useState<File | null>(null);
     const [attachmentPreviewUrl, setAttachmentPreviewUrl] = useState<string | null>(null);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [selectedMemberForProfile, setSelectedMemberForProfile] = useState<ServerMemberDisplay | null>(null);
     const [friendRequestsIncoming, setFriendRequestsIncoming] = useState<Array<{ id: string; from_user_id: string; profiles: { id: string; username: string | null; avatar_url: string | null } | null }>>([]);
+    const [friendRequestsOutgoing, setFriendRequestsOutgoing] = useState<Array<{ id: string; to_user_id: string; profiles: { id: string; username: string | null; avatar_url: string | null } | null }>>([]);
     const [requestStatusWithSelected, setRequestStatusWithSelected] = useState<'pending_sent' | 'pending_received' | 'accepted' | null>(null);
 
     // --- SUPABASE HOOKS ---
@@ -404,9 +452,10 @@ export default function OxideApp() {
     // fetchVoiceChannelUsers is now handled by useVoiceChannel hook automatically
 
     useEffect(() => {
-        if (channelType !== 'voice') return;
         const room = livekitService.getRoom();
         if (!room) return;
+        const isDmCall = room.name.startsWith('dm_call_');
+        if (channelType !== 'voice' && !isDmCall) return;
 
         const syncState = () => {
             const micPublication = room.localParticipant.getTrackPublication(Track.Source.Microphone);
@@ -429,10 +478,12 @@ export default function OxideApp() {
             room.off('localTrackPublished', syncState);
             room.off('localTrackUnpublished', syncState);
         };
-    }, [channelType]);
+    }, [channelType, dmCallRoomName]);
 
     useEffect(() => {
-        if (channelType !== 'voice') {
+        const room = livekitService.getRoom();
+        const isDmCall = room?.name.startsWith('dm_call_');
+        if (!room || (channelType !== 'voice' && !isDmCall)) {
             setLivekitSpeakingIds(new Set());
             setLivekitVideoTracks(new Map());
             setLivekitFocusedKey(null);
@@ -440,9 +491,6 @@ export default function OxideApp() {
             setLivekitFullscreen(false);
             return;
         }
-
-        const room = livekitService.getRoom();
-        if (!room) return;
 
         let isMounted = true;
         const getKey = (identity: string, source: string) => `${identity}:${source}`;
@@ -488,7 +536,7 @@ export default function OxideApp() {
                 next.set(getKey(participant.identity, source), { track, source, muted: !!publication?.isMuted });
                 return next;
             });
-            if (activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
+            if (!isDmCall && activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
                 fetchVoiceChannelUsers(activeChannelId);
             }
         };
@@ -501,7 +549,7 @@ export default function OxideApp() {
                 next.delete(getKey(participant.identity, source));
                 return next;
             });
-            if (activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
+            if (!isDmCall && activeChannelId && (source === Track.Source.ScreenShare || source === Track.Source.Camera)) {
                 fetchVoiceChannelUsers(activeChannelId);
             }
         };
@@ -559,7 +607,7 @@ export default function OxideApp() {
 
         const onLocalTrackChanged = () => {
             applyLocalVideo();
-            if (activeChannelId) fetchVoiceChannelUsers(activeChannelId);
+            if (!isDmCall && activeChannelId) fetchVoiceChannelUsers(activeChannelId);
         };
 
         // Register all event handlers
@@ -581,7 +629,7 @@ export default function OxideApp() {
 
         // Initial setup
         applyLocalVideo();
-        if (activeChannelId) fetchVoiceChannelUsers(activeChannelId);
+        if (!isDmCall && activeChannelId) fetchVoiceChannelUsers(activeChannelId);
         room.remoteParticipants.forEach((participant) => {
             participant.videoTrackPublications.forEach((publication: any) => {
                 if (publication.track && publication.track.kind === 'video' && isMounted) {
@@ -601,7 +649,7 @@ export default function OxideApp() {
                 room.off(event as any, handler);
             });
         };
-    }, [channelType, activeChannelId, fetchVoiceChannelUsers]);
+    }, [channelType, activeChannelId, fetchVoiceChannelUsers, dmCallRoomName]);
 
     useEffect(() => {
         if (!livekitFocusedKey) {
@@ -655,6 +703,8 @@ export default function OxideApp() {
     const serverIconInputRef = useRef<HTMLInputElement>(null);
     const profileStatusMenuRef = useRef<HTMLDivElement>(null);
     const avatarFileInputRef = useRef<HTMLInputElement>(null);
+    const folderIconInputRef = useRef<HTMLInputElement>(null);
+    const folderIconTargetIdRef = useRef<string | null>(null);
     const [avatarUploading, setAvatarUploading] = useState(false);
 
     // DnD Sensors
@@ -915,9 +965,204 @@ export default function OxideApp() {
         }
     }, [authUser?.id, supabase]);
 
+    const fetchFriendRequestsOutgoing = useCallback(async () => {
+        if (!authUser?.id) {
+            setFriendRequestsOutgoing([]);
+            return;
+        }
+        try {
+            const { data, error } = await supabase
+                .from('friend_requests')
+                .select('id, to_user_id, profiles:to_user_id(id, username, avatar_url)')
+                .eq('from_user_id', authUser.id)
+                .eq('status', 'pending');
+            if (error) throw error;
+            const list = (data || []).map((r: any) => ({
+                id: r.id,
+                to_user_id: r.to_user_id,
+                profiles: r.profiles ?? null,
+            }));
+            setFriendRequestsOutgoing(list);
+        } catch {
+            setFriendRequestsOutgoing([]);
+        }
+    }, [authUser?.id, supabase]);
+
     useEffect(() => {
         fetchFriendRequestsIncoming();
     }, [fetchFriendRequestsIncoming]);
+
+    useEffect(() => {
+        fetchFriendRequestsOutgoing();
+    }, [fetchFriendRequestsOutgoing]);
+
+    useEffect(() => {
+        if (!authUser?.id) return;
+        const channel = supabase
+            .channel('friend_requests_live')
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'friend_requests',
+                filter: `to_user_id=eq.${authUser.id}`,
+            }, () => {
+                fetchFriendRequestsIncoming();
+            })
+            .on('postgres_changes', {
+                event: '*',
+                schema: 'public',
+                table: 'friend_requests',
+                filter: `from_user_id=eq.${authUser.id}`,
+            }, () => {
+                fetchFriendRequestsOutgoing();
+            })
+            .subscribe();
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, [authUser?.id, supabase, fetchFriendRequestsIncoming, fetchFriendRequestsOutgoing]);
+
+    // Gelen arama (call_invitations) aboneliği
+    useEffect(() => {
+        if (!authUser?.id) return;
+        const channel = supabase
+            .channel('call_invitations_live')
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'call_invitations',
+                filter: `to_user_id=eq.${authUser.id}`,
+            }, async (payload: any) => {
+                const row = payload?.new;
+                if (!row || row.status !== 'ringing') return;
+                try {
+                    const { data: profile } = await supabase
+                        .from('profiles')
+                        .select('username, avatar_url')
+                        .eq('id', row.from_user_id)
+                        .single();
+                    setIncomingCall({
+                        id: row.id,
+                        from_user_id: row.from_user_id,
+                        room_name: row.room_name,
+                        caller_name: profile?.username || 'Kullanıcı',
+                        caller_avatar: profile?.avatar_url || '',
+                    });
+                } catch {
+                    setIncomingCall({
+                        id: row.id,
+                        from_user_id: row.from_user_id,
+                        room_name: row.room_name,
+                        caller_name: 'Kullanıcı',
+                        caller_avatar: '',
+                    });
+                }
+            })
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'call_invitations',
+                filter: `to_user_id=eq.${authUser.id}`,
+            }, (payload: any) => {
+                const row = payload?.new;
+                if (!row) return;
+                setIncomingCall((prev) => (prev && prev.id === row.id && row.status !== 'ringing' ? null : prev));
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(channel); };
+    }, [authUser?.id, supabase]);
+
+    // Çağrıyı kabul et
+    const handleAcceptCall = useCallback(async () => {
+        if (!incomingCall || !authUser?.id) return;
+        setIncomingCallAccepting(true);
+        try {
+            await supabase.from('call_invitations').update({ status: 'accepted' }).eq('id', incomingCall.id);
+            await livekitService.joinRoom(incomingCall.room_name, authUser.id, user.username || 'User');
+            setDmCallRoomName(incomingCall.room_name);
+            setActiveDmUser((prev: any) => prev?.id === incomingCall.from_user_id ? prev : (friends.find((f: any) => f.id === incomingCall.from_user_id) || prev));
+            setActiveServerId('dm');
+            setIncomingCall(null);
+        } catch (e) {
+            logger.error('Arama kabul hatası', e);
+            addToast('Arama bağlanamadı.', 'error');
+        } finally {
+            setIncomingCallAccepting(false);
+        }
+    }, [incomingCall, authUser?.id, user.username, friends, supabase, addToast]);
+
+    // Çağrıyı reddet
+    const handleDeclineCall = useCallback(async () => {
+        if (!incomingCall) return;
+        try {
+            await supabase.from('call_invitations').update({ status: 'declined' }).eq('id', incomingCall.id);
+        } catch { /* ignore */ }
+        setIncomingCall(null);
+    }, [incomingCall, supabase]);
+
+    // Aramayı başlat (DM arkadaşına)
+    const handleStartCall = useCallback(async (friend: { id: string; name: string; threadId?: string }) => {
+        if (!authUser?.id || !friend?.threadId) {
+            addToast('Bu kullanıcıyla arama başlatılamadı.', 'error');
+            return;
+        }
+        const roomName = `dm_call_${friend.threadId}`;
+        try {
+            const { data: inv, error: insertErr } = await supabase
+                .from('call_invitations')
+                .insert({ from_user_id: authUser.id, to_user_id: friend.id, room_name: roomName, status: 'ringing' })
+                .select('id')
+                .single();
+            if (insertErr) throw insertErr;
+            await livekitService.joinRoom(roomName, authUser.id, user.username || 'User');
+            setDmCallRoomName(roomName);
+            setOutgoingCall({ roomName, toUserId: friend.id, toName: friend.name, invitationId: (inv as any)?.id });
+            setActiveDmUser((prev: any) => prev?.id === friend.id ? prev : (friends.find((f: any) => f.id === friend.id) || prev));
+            setActiveServerId('dm');
+        } catch (e) {
+            logger.error('Arama başlatma hatası', e);
+            addToast('Arama başlatılamadı.', 'error');
+        }
+    }, [authUser?.id, user.username, friends, supabase, addToast]);
+
+    const handleLeaveDmCall = useCallback(() => {
+        setDmCallRoomName(null);
+        setOutgoingCall(null);
+    }, []);
+
+    // Giden aramayı iptal et
+    const handleCancelOutgoingCall = useCallback(async () => {
+        if (!outgoingCall) return;
+        try {
+            await supabase.from('call_invitations').update({ status: 'cancelled' }).eq('id', outgoingCall.invitationId);
+            await livekitService.leaveRoom();
+        } catch { /* ignore */ }
+        setDmCallRoomName(null);
+        setOutgoingCall(null);
+    }, [outgoingCall, supabase]);
+
+    // Giden arama durumu: karşı taraf reddetti/iptal ettiğinde temizle
+    useEffect(() => {
+        if (!authUser?.id || !outgoingCall) return;
+        const ch = supabase
+            .channel('outgoing_call_status')
+            .on('postgres_changes', {
+                event: 'UPDATE',
+                schema: 'public',
+                table: 'call_invitations',
+                filter: `id=eq.${outgoingCall.invitationId}`,
+            }, async (payload: any) => {
+                const row = payload?.new;
+                if (!row) return;
+                if (row.status === 'declined' || row.status === 'cancelled') {
+                    try { await livekitService.leaveRoom(); } catch { /* ignore */ }
+                    setDmCallRoomName(null);
+                }
+                if (row.status === 'declined' || row.status === 'cancelled' || row.status === 'accepted') setOutgoingCall(null);
+            })
+            .subscribe();
+        return () => { supabase.removeChannel(ch); };
+    }, [authUser?.id, outgoingCall?.invitationId, supabase]);
 
     const fetchNotifications = useCallback(async () => {
         if (!authUser?.id) {
@@ -1128,6 +1373,58 @@ export default function OxideApp() {
         }
     }, [authUser?.id, supabase, fetchFriendRequestsIncoming, addToast]);
 
+    const handleCancelFriendRequest = useCallback(async (requestId: string) => {
+        if (!authUser?.id) return;
+        try {
+            const { error } = await supabase
+                .from('friend_requests')
+                .delete()
+                .eq('id', requestId)
+                .eq('from_user_id', authUser.id);
+            if (error) throw error;
+            await fetchFriendRequestsOutgoing();
+            addToast('İstek iptal edildi.', 'info');
+        } catch (e: unknown) {
+            addToast('İptal edilemedi: ' + formatError(e), 'error');
+        }
+    }, [authUser?.id, supabase, fetchFriendRequestsOutgoing, addToast]);
+
+    const handleSearchUsers = useCallback(async (query: string): Promise<Array<{ id: string; username: string | null; avatar_url: string | null; status: string | null }>> => {
+        if (!authUser?.id || !query.trim()) return [];
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('id, username, avatar_url, status')
+            .ilike('username', `%${query.trim()}%`)
+            .neq('id', authUser.id)
+            .limit(20);
+        if (error) return [];
+        return (data || []) as Array<{ id: string; username: string | null; avatar_url: string | null; status: string | null }>;
+    }, [authUser?.id, supabase]);
+
+    const handleSendFriendRequestByUserId = useCallback(async (userId: string) => {
+        if (!authUser?.id) return;
+        if (userId === authUser.id) {
+            addToast('Kendinle arkadaş olamazsın.', 'info');
+            return;
+        }
+        try {
+            const { error } = await supabase
+                .from('friend_requests')
+                .insert({ from_user_id: authUser.id, to_user_id: userId, status: 'pending' });
+            if (error) {
+                if (error.code === '23505') {
+                    addToast('Zaten istek gönderdin veya arkadaşsınız.', 'info');
+                    return;
+                }
+                throw error;
+            }
+            addToast('Arkadaşlık isteği gönderildi.', 'success');
+            await fetchFriendRequestsOutgoing();
+        } catch (e: unknown) {
+            addToast('İstek gönderilemedi: ' + formatError(e), 'error');
+        }
+    }, [authUser?.id, supabase, addToast, fetchFriendRequestsOutgoing]);
+
     const handleOpenDmWithMemberIfFriend = useCallback((member: ServerMemberDisplay) => {
         const friend = friends.find(f => f.id === member.id);
         if (friend) {
@@ -1154,10 +1451,15 @@ export default function OxideApp() {
         [serverChannels, searchQuery]
     );
     
-    const filteredFriends = useMemo(() => 
-        friends.filter(f => f.name.toLowerCase().includes(searchQuery.toLowerCase())),
-        [friends, searchQuery]
-    );
+    const filteredFriends = useMemo(() => {
+        let list = friends.filter(f => f.name.toLowerCase().includes(dmSearchQuery.trim().toLowerCase()));
+        if (dmStatusFilter === 'online') list = list.filter(f => onlineUserIds.has(f.id));
+        if (dmStatusFilter === 'offline') list = list.filter(f => !onlineUserIds.has(f.id));
+        if (dmSortBy === 'name_asc') list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+        if (dmSortBy === 'name_desc') list = [...list].sort((a, b) => b.name.localeCompare(a.name, 'tr'));
+        if (dmSortBy === 'online_first') list = [...list].sort((a, b) => (onlineUserIds.has(b.id) ? 1 : 0) - (onlineUserIds.has(a.id) ? 1 : 0) || a.name.localeCompare(b.name, 'tr'));
+        return list;
+    }, [friends, dmSearchQuery, dmStatusFilter, dmSortBy, onlineUserIds]);
 
     const categories = useMemo(() => filteredChannels.reduce((acc: any, ch) => {
         if (!acc[ch.category]) acc[ch.category] = [];
@@ -1192,6 +1494,7 @@ export default function OxideApp() {
         setIsLoading(true);
         setMobileMenuOpen(false);
         setSearchQuery('');
+        if (serverId === 'dm') setDmSearchQuery('');
         setShowAddFriend(false);
 
         // Async işlemi direkt yap
@@ -1251,16 +1554,29 @@ export default function OxideApp() {
                 return;
             }
             try {
-                const { error } = await supabase
+                const { data: inserted, error } = await supabase
                     .from('dm_messages')
                     .insert({
                         thread_id: threadId,
                         user_id: authUser.id,
                         content: contentToSend,
-                    });
+                    })
+                    .select('id, content, created_at')
+                    .single();
 
                 if (error) throw error;
                 addToast('Mesaj gönderildi', 'success');
+                if (inserted) {
+                    const newMsg = {
+                        id: inserted.id,
+                        user: user?.username || 'Sen',
+                        content: inserted.content,
+                        time: new Date(inserted.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        isMe: true,
+                        avatar: user?.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${authUser.id}`,
+                    };
+                    setCurrentMessages((prev) => [...prev, newMsg]);
+                }
             } catch (error: unknown) {
                 addToast(error instanceof Error ? error.message : 'DM mesajı gönderilemedi', 'error');
             }
@@ -1274,7 +1590,7 @@ export default function OxideApp() {
             }
         }
         setInputVal('');
-    }, [inputVal, pendingAttachment, authUser?.id, activeServerId, activeDmUser?.threadId, channelType, activeChannelId, addToast, setInputVal, sendMessageHandler, supabase, handleAttachmentClear]);
+    }, [inputVal, pendingAttachment, authUser?.id, activeServerId, activeDmUser?.threadId, channelType, activeChannelId, addToast, setInputVal, sendMessageHandler, supabase, handleAttachmentClear, user?.username, user?.avatar, setCurrentMessages]);
 
     const handleEditMessage = useCallback(async (id: string | number, newContent: string) => {
         const trimmed = newContent.trim();
@@ -1535,6 +1851,30 @@ export default function OxideApp() {
         setNewFolderName('');
         if (folderContextServer) setServerToFolder(prev => ({ ...prev, [folderContextServer]: fid }));
         setFolderContextServer(null);
+    };
+
+    const confirmCreateFolderFromDrop = () => {
+        if (!createFolderFromDrop) return;
+        const name = newFolderNameFromDrop.trim() || 'Yeni Klasör';
+        const fid = crypto.randomUUID();
+        setServerFolders(prev => [...prev, { id: fid, name }]);
+        setServerToFolder(prev => ({
+            ...prev,
+            [createFolderFromDrop.fromServerId]: fid,
+            [createFolderFromDrop.ontoServerId]: fid,
+        }));
+        setCollapsedFolderIds(prev => { const next = new Set(prev); next.delete(fid); return next; });
+        setCreateFolderFromDrop(null);
+        setNewFolderNameFromDrop('');
+        setDraggedServerId(null);
+        setDropTargetServerId(null);
+        addToast('Klasör oluşturuldu: ' + name, 'success');
+    };
+
+    const updateFolder = (folderId: string, updates: { name?: string; icon_url?: string | null }) => {
+        setServerFolders(prev => prev.map(f => f.id === folderId ? { ...f, ...updates } : f));
+        setEditFolderModal(null);
+        setFolderContextFolderId(null);
     };
     const addServerToFolder = (serverId: string, folderId: string) => {
         setServerToFolder(prev => ({ ...prev, [serverId]: folderId }));
@@ -1841,8 +2181,6 @@ export default function OxideApp() {
     } else {
         content = (
         <div className="h-screen w-full bg-[#09090b] text-white flex flex-col font-sans overflow-hidden relative selection:bg-orange-500/30" onClick={() => { setShowNotifications(false); }}>
-                <AppUpdateBanner />
-
             {/* Toast */}
             <div className="absolute bottom-6 right-6 z-[150] flex flex-col gap-2 pointer-events-none">
                 {toasts.map(t => (
@@ -1858,26 +2196,27 @@ export default function OxideApp() {
                 <div className="absolute bottom-0 right-0 w-[30vw] h-[30vw] bg-red-900/10 rounded-full blur-[120px]" />
             </div>
 
-            {/* --- TOP NAV (göze çarpan bar + sunucu klasörleri) --- */}
-            <div className="h-20 flex-shrink-0 z-50 px-4 md:px-6 flex items-center justify-between bg-gradient-to-r from-[#0c0c0f] via-[#121218] to-[#0c0c0f] border-b border-white/10 shadow-[0_4px_24px_-4px_rgba(249,115,22,0.12)]">
-                <div className="flex items-center gap-4 md:gap-5 flex-1 min-w-0">
-                    <button className="md:hidden p-2.5 rounded-xl text-zinc-400 hover:text-white hover:bg-white/10" onClick={() => setMobileMenuOpen(!isMobileMenuOpen)}>
+            {/* --- TOP NAV: mobil uyumlu + profesyonel sunucu/klasör bar --- */}
+            <div className="h-14 md:h-16 flex-shrink-0 z-50 px-3 md:px-6 flex items-center justify-between bg-[#0c0c0f]/95 backdrop-blur-md border-b border-white/10 shadow-sm">
+                <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+                    <button className="md:hidden p-2.5 min-w-[44px] min-h-[44px] rounded-xl text-zinc-400 hover:text-white hover:bg-white/10 flex items-center justify-center" onClick={() => setMobileMenuOpen(!isMobileMenuOpen)} aria-label="Menü">
                         <Menu size={22} />
                     </button>
 
                     <div
-                        className="flex items-center gap-3 cursor-pointer group flex-shrink-0 rounded-2xl px-3 py-2 transition-all duration-300 hover:bg-white/5"
+                        className="flex items-center gap-2 cursor-pointer group flex-shrink-0 rounded-xl px-2 py-1.5 md:px-3 md:py-2 transition-all duration-200 hover:bg-white/5 active:scale-[0.98]"
                         onClick={() => handleServerSwitch('dm')}
                     >
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-300 ${activeServerId === 'dm' ? 'shadow-lg shadow-orange-500/40 ring-2 ring-orange-400/50' : 'bg-white/5 group-hover:bg-white/10'}`}>
-                            <img src="/logo.png" alt="" className="w-full h-full object-cover" />
+                        <div className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center overflow-hidden transition-all duration-200 flex-shrink-0 ${activeServerId === 'dm' ? 'shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/60' : 'bg-white/5 group-hover:bg-white/10'}`}>
+                            <img src="/logo.png" alt="Oxide Space" className="w-full h-full object-cover" />
                         </div>
-                        <span className="font-bold text-lg tracking-tight hidden md:block bg-gradient-to-r from-zinc-100 to-zinc-300 bg-clip-text text-transparent">Oxide<span className="text-orange-400">Space</span></span>
+                        <span className="font-semibold text-sm md:text-base tracking-tight hidden sm:block text-zinc-200 group-hover:text-white truncate max-w-[120px]">Oxide<span className="text-orange-400">Space</span></span>
                     </div>
 
-                    <div className="h-9 w-px bg-gradient-to-b from-transparent via-white/15 to-transparent hidden md:block flex-shrink-0" />
+                    <div className="h-6 w-px bg-white/10 flex-shrink-0 hidden sm:block" />
 
-                    <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar py-2 flex-1 min-w-0 max-w-[55vw]">
+                    {/* Sunucu + klasör listesi: mobilde kaydırılabilir, dokunmatik dostu */}
+                    <div className="flex items-center gap-1.5 md:gap-2 overflow-x-auto overflow-y-hidden no-scrollbar py-1.5 flex-1 min-w-0 max-w-[60vw] md:max-w-[55vw] scroll-smooth">
                         {(() => {
                             const list = servers.filter((s: Server) => s.type !== 'dm');
                             const uncategorized = list.filter((s: Server) => !serverToFolder[s.id]);
@@ -1893,6 +2232,7 @@ export default function OxideApp() {
                                 setDropTargetFolderId(null);
                                 setDropTargetUncategorized(false);
                                 setDropTargetFolderOrderId(null);
+                                setDropTargetServerId(null);
                             };
                             const handleDropUncategorized = (e: React.DragEvent) => {
                                 e.preventDefault();
@@ -1923,30 +2263,53 @@ export default function OxideApp() {
                                     setDropTargetFolderId(null);
                                 }
                             };
-                            const renderServerBtn = (server: Server) => (
-                                <button
-                                    key={server.id}
-                                    draggable
-                                    onDragStart={(e) => handleDragStart(e, server.id)}
-                                    onDragEnd={handleDragEnd}
-                                    onClick={() => handleServerSwitch(server.id)}
-                                    onContextMenu={(e) => { e.preventDefault(); setFolderContextServer(server.id); setFolderMenuPos({ x: e.clientX, y: e.clientY }); }}
-                                    className={`group flex items-center gap-2.5 pl-1.5 pr-4 py-2 rounded-xl transition-all duration-300 flex-shrink-0 cursor-grab active:cursor-grabbing
-                                        ${activeServerId === server.id ? 'bg-white/15 text-white shadow-lg shadow-black/30 ring-1 ring-white/20' : 'hover:bg-white/10 text-zinc-400 hover:text-zinc-200'}
-                                        ${draggedServerId === server.id ? 'opacity-50 scale-95' : ''}`}
-                                >
-                                    <div className={`w-9 h-9 rounded-lg bg-gradient-to-br ${server.color ?? 'from-gray-700 to-gray-900'} p-[2px] flex-shrink-0`}>
-                                        <img src={server.icon || ''} alt="" className="w-full h-full rounded-lg bg-black/60 object-cover" draggable={false} />
+                            const renderServerBtn = (server: Server) => {
+                                const isDropTarget = draggedServerId && draggedServerId !== server.id && dropTargetServerId === server.id;
+                                return (
+                                    <div
+                                        key={server.id}
+                                        onDragOver={(e) => {
+                                            if (draggedServerId && draggedServerId !== server.id) {
+                                                e.preventDefault();
+                                                e.dataTransfer.dropEffect = 'move';
+                                                setDropTargetServerId(server.id);
+                                            }
+                                        }}
+                                        onDragLeave={() => setDropTargetServerId(prev => prev === server.id ? null : prev)}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            const from = draggedServerId;
+                                            if (from && from !== server.id) setCreateFolderFromDrop({ fromServerId: from, ontoServerId: server.id });
+                                            setDropTargetServerId(null);
+                                        }}
+                                        className={isDropTarget ? 'rounded-xl ring-2 ring-orange-500/60 ring-inset bg-orange-500/15' : ''}
+                                    >
+                                        <button
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, server.id)}
+                                            onDragEnd={handleDragEnd}
+                                            onClick={() => handleServerSwitch(server.id)}
+                                            onContextMenu={(e) => { e.preventDefault(); setFolderContextServer(server.id); setFolderMenuPos({ x: e.clientX, y: e.clientY }); }}
+                                            title={server.name}
+                                            className={`group flex items-center gap-2 min-w-[44px] md:min-w-0 pl-1 pr-2 md:pr-3 py-2 rounded-xl transition-all duration-200 flex-shrink-0 cursor-grab active:cursor-grabbing touch-manipulation w-full
+                                                ${activeServerId === server.id ? 'bg-white/12 text-white ring-1 ring-white/20 shadow-inner' : 'hover:bg-white/8 text-zinc-400 hover:text-zinc-200'}
+                                                ${draggedServerId === server.id ? 'opacity-50 scale-95' : ''}`}
+                                        >
+                                            <div className={`w-8 h-8 md:w-9 md:h-9 rounded-lg bg-gradient-to-br ${server.color ?? 'from-gray-700 to-gray-900'} p-[2px] flex-shrink-0 ring-1 ring-black/20`}>
+                                                <img src={server.icon || ''} alt="" className="w-full h-full rounded-[6px] bg-black/60 object-cover" draggable={false} />
+                                            </div>
+                                            <span className="text-sm font-medium truncate max-w-[72px] md:max-w-[100px] hidden sm:block">{server.name}</span>
+                                        </button>
                                     </div>
-                                    <span className="text-sm font-semibold whitespace-nowrap">{server.name}</span>
-                                </button>
-                            );
+                                );
+                            };
                             return (
                                 <>
                                     <button
                                         onClick={() => setModals(m => ({ ...m, create: true }))}
-                                        className="w-11 h-11 rounded-xl border-2 border-dashed border-white/20 flex items-center justify-center text-zinc-500 hover:text-orange-400 hover:border-orange-500/50 hover:bg-orange-500/10 transition-all flex-shrink-0 order-first"
-                                        title="Sunucu oluştur"
+                                        className="w-10 h-10 md:w-11 md:h-11 rounded-xl border-2 border-dashed border-white/15 flex items-center justify-center text-zinc-500 hover:text-orange-400 hover:border-orange-500/40 hover:bg-orange-500/10 transition-all flex-shrink-0 order-first min-w-[44px] min-h-[44px] touch-manipulation"
+                                        title="Yeni sunucu"
+                                        aria-label="Yeni sunucu"
                                     >
                                         <Plus size={20} />
                                     </button>
@@ -1954,7 +2317,7 @@ export default function OxideApp() {
                                         onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (draggedServerId) setDropTargetUncategorized(true); if (draggedFolderId && serverFolders.length > 0) setDropTargetUncategorized(true); }}
                                         onDragLeave={() => { setDropTargetUncategorized(false); setDropTargetFolderOrderId(null); }}
                                         onDrop={handleDropUncategorized}
-                                        className={`flex items-center gap-2 flex-shrink-0 min-w-[80px] rounded-xl transition-colors ${dropTargetUncategorized ? 'bg-orange-500/20 ring-2 ring-orange-500/50 ring-inset' : ''}`}
+                                        className={`flex items-center gap-1.5 flex-shrink-0 min-w-0 rounded-xl transition-colors py-0.5 ${dropTargetUncategorized ? 'bg-orange-500/15 ring-2 ring-orange-500/40 ring-inset rounded-xl' : ''}`}
                                     >
                                         {uncategorized.map(renderServerBtn)}
                                     </div>
@@ -1975,8 +2338,8 @@ export default function OxideApp() {
                                                 }}
                                                 onDragEnd={handleDragEnd}
                                                 className={`flex items-center gap-1 flex-shrink-0 rounded-xl transition-colors cursor-grab active:cursor-grabbing
-                                                    ${isDropTarget ? 'bg-orange-500/20 ring-2 ring-orange-500/50 ring-inset' : ''}
-                                                    ${isFolderOrderTarget ? 'ring-2 ring-amber-500/60 ring-inset' : ''}
+                                                    ${isDropTarget ? 'bg-orange-500/15 ring-2 ring-orange-500/40 ring-inset' : ''}
+                                                    ${isFolderOrderTarget ? 'ring-2 ring-amber-500/50 ring-inset' : ''}
                                                     ${draggedFolderId === f.id ? 'opacity-50' : ''}`}
                                                 onDragOver={(e) => {
                                                     e.preventDefault();
@@ -1990,14 +2353,21 @@ export default function OxideApp() {
                                                 <button
                                                     type="button"
                                                     onClick={() => toggleFolderCollapsed(f.id)}
-                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors flex-shrink-0"
-                                                    title={isCollapsed ? 'Aç' : 'Kapat'}
+                                                    onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setFolderContextFolderId(f.id); setFolderContextMenuPos({ x: e.clientX, y: e.clientY }); }}
+                                                    title={isCollapsed ? `${f.name} — Aç` : `${f.name} — Kapat`}
+                                                    className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded-lg text-zinc-500 hover:text-zinc-300 hover:bg-white/5 transition-colors flex-shrink-0 min-h-[44px] touch-manipulation"
                                                 >
-                                                    <ChevronRight size={16} className={`transition-transform ${isCollapsed ? '' : 'rotate-90'}`} />
-                                                    <Folder size={14} />
-                                                    <span className="text-xs font-medium">{f.name}</span>
+                                                    <div className="flex items-center gap-0.5">
+                                                        <ChevronRight size={14} className={`flex-shrink-0 transition-transform duration-200 ${isCollapsed ? '' : 'rotate-90'}`} />
+                                                        {f.icon_url ? (
+                                                            <img src={f.icon_url} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0 ring-1 ring-black/20" />
+                                                        ) : (
+                                                            <Folder size={13} className="flex-shrink-0 text-zinc-500" />
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] md:text-xs font-medium text-zinc-400 truncate max-w-[56px] md:max-w-[72px] text-center leading-tight">{f.name}</span>
                                                 </button>
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-1.5">
                                                     {!isCollapsed && inFolder.map(renderServerBtn)}
                                                 </div>
                                             </div>
@@ -2025,7 +2395,7 @@ export default function OxideApp() {
                             )}
                             {serverFolders.map(f => (
                                 <button key={f.id} type="button" onClick={() => addServerToFolder(folderContextServer, f.id)} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
-                                    <Folder size={14} className="text-orange-500/80" />{f.name}
+                                    {f.icon_url ? <img src={f.icon_url} alt="" className="w-5 h-5 rounded object-cover flex-shrink-0" /> : <Folder size={14} className="text-orange-500/80 flex-shrink-0" />}{f.name}
                                 </button>
                             ))}
                             <div className="border-t border-white/5 mt-1 pt-1">
@@ -2047,6 +2417,83 @@ export default function OxideApp() {
                     document.body
                 )}
 
+                {/* Klasör sağ tık: Resim seç / Düzenle */}
+                {folderContextFolderId && createPortal(
+                    <div className="fixed inset-0 z-[200]" onClick={() => setFolderContextFolderId(null)}>
+                        <div
+                            className="absolute bg-[#18181b] border border-white/10 rounded-xl shadow-2xl py-1 min-w-[200px] overflow-hidden"
+                            style={{ left: folderContextMenuPos.x, top: folderContextMenuPos.y }}
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <button type="button" onClick={() => { folderIconTargetIdRef.current = folderContextFolderId; folderIconInputRef.current?.click(); setFolderContextFolderId(null); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                                <ImageIcon size={14} className="text-orange-500/80" /> Klasör resmi seç
+                            </button>
+                            <button type="button" onClick={() => { const f = serverFolders.find(x => x.id === folderContextFolderId); if (f) setEditFolderModal({ folderId: f.id, name: f.name, icon_url: f.icon_url ?? null }); setFolderContextFolderId(null); }} className="w-full text-left px-4 py-2 text-sm text-zinc-300 hover:bg-white/10 hover:text-white flex items-center gap-2">
+                                <PenLine size={14} className="text-orange-500/80" /> Klasörü düzenle
+                            </button>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+                <input type="file" ref={folderIconInputRef} accept="image/*" className="hidden" onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    const fid = folderIconTargetIdRef.current;
+                    e.target.value = '';
+                    folderIconTargetIdRef.current = null;
+                    if (!file || !fid) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const dataUrl = reader.result as string;
+                        updateFolder(fid, { icon_url: dataUrl });
+                        setEditFolderModal(prev => prev && prev.folderId === fid ? { ...prev, icon_url: dataUrl } : prev);
+                        addToast('Klasör resmi güncellendi.', 'success');
+                    };
+                    reader.readAsDataURL(file);
+                }} />
+
+                {/* Sunucuyu sunucuya bırakınca: Yeni klasör adı */}
+                {createFolderFromDrop && createPortal(
+                    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => { setCreateFolderFromDrop(null); setNewFolderNameFromDrop(''); }}>
+                        <div className="bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold text-white mb-2">Yeni klasör oluştur</h3>
+                            <p className="text-sm text-zinc-400 mb-4">İki sunucu bir klasörde birleştirilecek. Klasöre bir ad verin.</p>
+                            <input type="text" value={newFolderNameFromDrop} onChange={e => setNewFolderNameFromDrop(e.target.value)} placeholder="Klasör adı" className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-orange-500/50 mb-4" onKeyDown={e => e.key === 'Enter' && confirmCreateFolderFromDrop()} autoFocus />
+                            <div className="flex gap-2 justify-end">
+                                <button type="button" onClick={() => { setCreateFolderFromDrop(null); setNewFolderNameFromDrop(''); }} className="px-4 py-2 rounded-xl bg-white/10 text-zinc-300 hover:bg-white/15">İptal</button>
+                                <button type="button" onClick={confirmCreateFolderFromDrop} className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-medium">Oluştur</button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
+                {/* Klasör düzenle modal: ad + resim */}
+                {editFolderModal && createPortal(
+                    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60" onClick={() => setEditFolderModal(null)}>
+                        <div className="bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4" onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-bold text-white mb-4">Klasörü düzenle</h3>
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Klasör adı</label>
+                                    <input type="text" value={editFolderModal.name} onChange={e => setEditFolderModal(prev => prev ? { ...prev, name: e.target.value } : null)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50" />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-medium text-zinc-500 mb-1">Klasör resmi</label>
+                                    <div className="flex items-center gap-3">
+                                        {editFolderModal.icon_url && <img src={editFolderModal.icon_url} alt="" className="w-12 h-12 rounded-lg object-cover ring-1 ring-white/10" />}
+                                        <button type="button" onClick={() => { folderIconTargetIdRef.current = editFolderModal.folderId; folderIconInputRef.current?.click(); }} className="px-3 py-2 rounded-xl bg-white/10 text-zinc-300 hover:bg-white/15 text-sm">Resim seç</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 justify-end mt-6">
+                                <button type="button" onClick={() => setEditFolderModal(null)} className="px-4 py-2 rounded-xl bg-white/10 text-zinc-300 hover:bg-white/15">İptal</button>
+                                <button type="button" onClick={() => updateFolder(editFolderModal.folderId, { name: editFolderModal.name.trim() || editFolderModal.name, icon_url: editFolderModal.icon_url })} className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-medium">Kaydet</button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
+
                 <div className="flex items-center gap-4">
                     <div className="relative hidden lg:block group">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 group-hover:text-zinc-300" size={16} />
@@ -2058,6 +2505,25 @@ export default function OxideApp() {
                             className="bg-black/20 border border-white/5 rounded-full py-2 pl-10 pr-4 text-sm w-48 focus:w-64 transition-all focus:outline-none focus:border-orange-500/50 placeholder-zinc-600"
                         />
                     </div>
+
+                    {/* Update Available Button */}
+                    {isTauri() && appUpdate.available && (
+                        <button
+                            onClick={() => appUpdate.downloadAndInstall()}
+                            disabled={appUpdate.downloading}
+                            className="relative p-2 rounded-full hover:bg-white/10 text-emerald-400 hover:text-emerald-300 transition-colors group"
+                            title={`Güncelleme mevcut: v${appUpdate.version}`}
+                        >
+                            {appUpdate.downloading ? (
+                                <Loader2 size={20} className="animate-spin" />
+                            ) : (
+                                <>
+                                    <ArrowDownCircle size={20} className="animate-bounce" />
+                                    <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse border-2 border-[#09090b]" />
+                                </>
+                            )}
+                        </button>
+                    )}
 
                     {/* Notifications Trigger */}
                     <div className="relative">
@@ -2127,12 +2593,22 @@ export default function OxideApp() {
                     </div>
                 )}
 
-                {/* LEFT SIDEBAR */}
-                <div className={`
-          absolute inset-y-0 left-0 z-30 w-72 bg-[#121217] md:bg-transparent md:static md:flex flex-col
+                <IncomingCallModal
+                    call={incomingCall}
+                    onAccept={handleAcceptCall}
+                    onDecline={handleDeclineCall}
+                    accepting={incomingCallAccepting}
+                />
+
+                {/* LEFT SIDEBAR — mouse ile genişlik ayarlanabilir (md+) */}
+                <div
+                    className={`
+          absolute inset-y-0 left-0 z-30 bg-[#121217] md:bg-transparent md:static md:flex flex-col flex-shrink-0 md:relative
           transform transition-transform duration-300 ease-in-out md:translate-x-0
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}>
+        max-md:!w-72`}
+                    style={{ width: sidebarWidth }}
+                >
                     <Sidebar
                         activeServerId={activeServerId}
                         handleDmSelect={handleDmSelect}
@@ -2163,6 +2639,21 @@ export default function OxideApp() {
                         friendRequestsIncoming={friendRequestsIncoming}
                         onAcceptFriendRequest={handleAcceptFriendRequest}
                         onRejectFriendRequest={handleRejectFriendRequest}
+                        dmSearchQuery={dmSearchQuery}
+                        setDmSearchQuery={setDmSearchQuery}
+                        dmStatusFilter={dmStatusFilter}
+                        setDmStatusFilter={setDmStatusFilter}
+                        dmSortBy={dmSortBy}
+                        setDmSortBy={setDmSortBy}
+                        friendsCount={friends.length}
+                        onStartCall={handleStartCall}
+                    />
+                    {/* Resize handle — sadece masaüstünde */}
+                    <div
+                        onMouseDown={(e) => { e.preventDefault(); setSidebarResizing(true); }}
+                        className={`hidden md:block absolute top-0 right-0 w-1.5 h-full cursor-col-resize select-none transition-colors hover:bg-orange-500/40 active:bg-orange-500/60 ${sidebarResizing ? 'bg-orange-500/50' : 'bg-transparent'}`}
+                        title="Genişliği değiştirmek için sürükle"
+                        style={{ touchAction: 'none' }}
                     />
                 </div>
 
@@ -2179,34 +2670,26 @@ export default function OxideApp() {
                             <p className="text-zinc-400 max-w-sm">Sol taraftan bir kanal veya sohbet seçerek iletişime başla.</p>
                         </GlassCard>
                     ) : showAddFriend ? (
-                        // ADD FRIEND UI
-                        <GlassCard className="flex-1 rounded-none md:rounded-3xl flex flex-col items-center justify-center p-8 border-none md:border">
-                            <div className="max-w-md w-full">
-                                <h2 className="text-2xl font-bold text-white mb-6 text-center">Arkadaş Ekle</h2>
-                                <div className="flex gap-2">
-                                    <input
-                                        value={newFriendName}
-                                        onChange={(e) => setNewFriendName(e.target.value)}
-                                        placeholder="Kullanıcı adı gir (örn: NeoUser)"
-                                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-green-500"
-                                    />
-                                    <Button success onClick={handleAddFriend} disabled={!newFriendName}>Gönder</Button>
-                                </div>
-                                <div className="mt-8">
-                                    <h3 className="text-xs font-bold text-zinc-500 uppercase mb-4">Önerilenler</h3>
-                                    <div className="space-y-2">
-                                        {['CyberPunk', 'Glitch', 'Matrix'].map(name => (
-                                            <div key={name} className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                                                <div className="flex items-center gap-3">
-                                                    <Avatar src={`https://api.dicebear.com/7.x/notionists/svg?seed=${name}`} size="sm" status={undefined} onClick={undefined} />
-                                                    <span className="font-bold">{name}</span>
-                                                </div>
-                                                <Button onClick={() => { setNewFriendName(name); handleAddFriend(); }} className="h-8 px-3 py-0 text-xs bg-white/10">Ekle</Button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
+                        // ADD FRIEND — Profesyonel sekme + arama + gelen/giden istekler
+                        <GlassCard className="flex-1 rounded-none md:rounded-3xl flex flex-col overflow-hidden border-none md:border p-0">
+                            <AddFriendView
+                                currentUserId={authUser?.id ?? ''}
+                                friends={friends}
+                                friendRequestsIncoming={friendRequestsIncoming}
+                                friendRequestsOutgoing={friendRequestsOutgoing}
+                                onSearchUsers={handleSearchUsers}
+                                onSendRequest={handleSendFriendRequestByUserId}
+                                onAcceptRequest={handleAcceptFriendRequest}
+                                onRejectRequest={handleRejectFriendRequest}
+                                onCancelRequest={handleCancelFriendRequest}
+                                onOpenDm={(friend) => {
+                                    setShowAddFriend(false);
+                                    setActiveServerId('dm');
+                                    handleDmSelect(friend);
+                                }}
+                                onClose={() => setShowAddFriend(false)}
+                                addToast={addToast}
+                            />
                         </GlassCard>
                     ) : channelType === 'canvas' && activeChannelId && activeServerId && activeServerId !== 'dm' ? (
                         <CanvasChannelView
@@ -2217,6 +2700,27 @@ export default function OxideApp() {
                             onSaveCanvasData={handleSaveCanvasData}
                             addToast={addToast}
                         />
+                    ) : dmCallRoomName && activeServerId === 'dm' && activeDmUser ? (
+                        // DM GÖRÜŞME EKRANI (Discord tarzı: kamera + ekran paylaşımı + kontroller)
+                        <GlassCard className="flex-1 rounded-none md:rounded-3xl overflow-hidden flex flex-col min-h-0 border-white/5 border-x-0 md:border-x border-b-0 md:border-b">
+                            <DmCallView
+                                user={user}
+                                activeDmUser={activeDmUser}
+                                voiceState={voiceState}
+                                setVoiceState={setVoiceState}
+                                livekitSpeakingIds={livekitSpeakingIds}
+                                livekitVideoTracks={livekitVideoTracks}
+                                livekitFocusedKey={livekitFocusedKey}
+                                setLivekitFocusedKey={setLivekitFocusedKey}
+                                livekitPinnedKey={livekitPinnedKey}
+                                setLivekitPinnedKey={setLivekitPinnedKey}
+                                livekitFullscreen={livekitFullscreen}
+                                setLivekitFullscreen={setLivekitFullscreen}
+                                addToast={addToast}
+                                onLeave={handleLeaveDmCall}
+                                setVoiceChannelUsers={setVoiceChannelUsers}
+                            />
+                        </GlassCard>
                     ) : (
                         // CHAT / VOICE UI
                         <ChatArea
@@ -2258,6 +2762,8 @@ export default function OxideApp() {
                             onAttachmentSelect={handleAttachmentSelect}
                             onAttachmentClear={handleAttachmentClear}
                             onOpenSettings={() => setModals(m => ({ ...m, settings: true }))}
+                            outgoingCall={outgoingCall}
+                            onCancelOutgoingCall={handleCancelOutgoingCall}
                         />
                     )}
                 </div>

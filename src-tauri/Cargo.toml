@@ -1,6 +1,6 @@
 [package]
 name = "oxide-app"
-version = "0.2.0"
+version = "0.3.0"
 description = "Oxide Space - Discord benzeri ses/sohbet uygulaması"
 authors = ["you"]
 edition = "2021"
@@ -18,3 +18,5 @@ serde_json = "1"
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+

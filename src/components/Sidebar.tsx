@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Settings, ChevronDown, FolderPlus, Mic, MicOff, Volume2, VolumeX, Check, X, UserPlus } from 'lucide-react';
+import { Plus, Settings, ChevronDown, FolderPlus, Mic, MicOff, Volume2, VolumeX, Check, X, UserPlus, Search, Users, Circle, CircleOff, Phone } from 'lucide-react';
 import { DndContext, closestCenter } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { livekitService } from '../lib/livekit';
@@ -41,6 +41,14 @@ interface SidebarProps {
     friendRequestsIncoming?: Array<{ id: string; from_user_id: string; profiles: { id: string; username: string | null; avatar_url: string | null } | null }>;
     onAcceptFriendRequest?: (fromUserId: string, fromProfile?: { username: string | null; avatar_url: string | null } | null) => void;
     onRejectFriendRequest?: (requestId: string) => void;
+    dmSearchQuery?: string;
+    setDmSearchQuery?: (q: string) => void;
+    dmStatusFilter?: 'all' | 'online' | 'offline';
+    setDmStatusFilter?: (v: 'all' | 'online' | 'offline') => void;
+    dmSortBy?: 'name_asc' | 'name_desc' | 'online_first';
+    setDmSortBy?: (v: 'name_asc' | 'name_desc' | 'online_first') => void;
+    friendsCount?: number;
+    onStartCall?: (friend: { id: string; name: string; threadId?: string }) => void;
 }
 
 export const Sidebar = React.memo(({
@@ -73,50 +81,153 @@ export const Sidebar = React.memo(({
     friendRequestsIncoming = [],
     onAcceptFriendRequest,
     onRejectFriendRequest,
+    dmSearchQuery = '',
+    setDmSearchQuery,
+    dmStatusFilter = 'all',
+    setDmStatusFilter,
+    dmSortBy = 'online_first',
+    setDmSortBy,
+    friendsCount = 0,
+    onStartCall,
 }: SidebarProps) => {
+    const [dmViewTab, setDmViewTab] = useState<'friends' | 'pending'>('friends');
+
     return (
         <GlassCard className="h-full flex flex-col rounded-none md:rounded-3xl overflow-hidden border-y-0 md:border-y border-l-0 md:border-l">
             {activeServerId === 'dm' ? (
                 <div className="p-4 flex flex-col h-full">
-                    <div className="flex items-center justify-between mb-6 px-2">
+                    <div className="flex items-center justify-between mb-3 px-2">
                         <h2 className="text-xl font-bold">Mesajlar</h2>
                         <Button onClick={() => setShowAddFriend(true)} className="h-8 px-3 py-0 bg-green-600/20 text-green-400 hover:bg-green-600/30 border-green-600/30 text-xs">Arkadaş Ekle</Button>
                     </div>
 
-                    {friendRequestsIncoming.length > 0 && (
-                        <div className="mb-4 space-y-2">
-                            <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider px-2">Arkadaşlık istekleri ({friendRequestsIncoming.length})</h3>
-                            {friendRequestsIncoming.map((req) => (
-                                <div key={req.id} className="flex items-center gap-3 p-2 rounded-xl bg-white/5 border border-white/5">
-                                    <Avatar src={req.profiles?.avatar_url ?? `https://api.dicebear.com/7.x/notionists/svg?seed=${req.from_user_id}`} size="sm" />
-                                    <span className="flex-1 text-sm font-medium text-white truncate">{req.profiles?.username ?? 'Kullanıcı'}</span>
-                                    <div className="flex gap-1 shrink-0">
-                                        <button type="button" onClick={() => onAcceptFriendRequest?.(req.from_user_id, req.profiles)} className="p-1.5 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30" title="Kabul et"><Check size={16} /></button>
-                                        <button type="button" onClick={() => onRejectFriendRequest?.(req.id)} className="p-1.5 rounded-lg bg-white/5 text-zinc-400 hover:bg-white/10" title="Reddet"><X size={16} /></button>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-
-                    <div className="space-y-1 overflow-y-auto pr-1 flex-1 custom-scrollbar">
-                        {filteredFriends.length === 0 ? <p className="text-zinc-500 text-center text-sm mt-4">Kimse bulunamadı.</p> : filteredFriends.map((friend: any) => (
-                            <div
-                                key={friend.id}
-                                onClick={() => handleDmSelect(friend)}
-                                className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors group
-             ${activeDmUser?.id === friend.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
-                            >
-                                <Avatar src={friend.avatar} size="sm" status={onlineUserIds.has(friend.id) ? 'online' : normalizeStatus(friend.status)} onClick={undefined} />
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-center">
-                                        <div className={`text-sm font-medium transition-colors truncate ${activeDmUser?.id === friend.id ? 'text-white' : 'text-zinc-300'}`}>{friend.name}</div>
-                                    </div>
-                                    <div className="text-xs text-zinc-500 truncate group-hover:text-zinc-400">{friend.lastMsg}</div>
-                                </div>
-                            </div>
-                        ))}
+                    {/* Discord tarzı: Arkadaşlar sekmesi */}
+                    <div className="flex gap-1 p-1 rounded-xl bg-white/5 border border-white/5 mb-3 flex-shrink-0">
+                        <button
+                            type="button"
+                            onClick={() => setDmViewTab('friends')}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors ${dmViewTab === 'friends' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                            <Users size={14} /> Arkadaşlar
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setDmViewTab('pending')}
+                            className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-colors relative ${dmViewTab === 'pending' ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+                        >
+                            <UserPlus size={14} /> Bekleyen
+                            {friendRequestsIncoming.length > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">{friendRequestsIncoming.length}</span>
+                            )}
+                        </button>
                     </div>
+
+                    {dmViewTab === 'pending' ? (
+                        <div className="space-y-2 overflow-y-auto flex-1 min-h-0 custom-scrollbar">
+                            {friendRequestsIncoming.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-8 text-center">
+                                    <Check className="text-zinc-600 mb-2" size={32} />
+                                    <p className="text-zinc-500 text-sm">Bekleyen arkadaşlık isteği yok.</p>
+                                </div>
+                            ) : (
+                                friendRequestsIncoming.map((req) => (
+                                    <div key={req.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
+                                        <Avatar src={req.profiles?.avatar_url ?? `https://api.dicebear.com/7.x/notionists/svg?seed=${req.from_user_id}`} size="sm" />
+                                        <span className="flex-1 text-sm font-medium text-white truncate">{req.profiles?.username ?? 'Kullanıcı'}</span>
+                                        <div className="flex gap-1 shrink-0">
+                                            <button type="button" onClick={() => onAcceptFriendRequest?.(req.from_user_id, req.profiles)} className="p-2 rounded-lg bg-green-600/20 text-green-400 hover:bg-green-600/30" title="Kabul et"><Check size={16} /></button>
+                                            <button type="button" onClick={() => onRejectFriendRequest?.(req.id)} className="p-2 rounded-lg bg-white/5 text-zinc-400 hover:bg-white/10" title="Reddet"><X size={16} /></button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        <>
+                            {/* Arkadaşlarda ara (Discord gibi) */}
+                            <div className="mb-3 space-y-2 flex-shrink-0">
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                                    <input
+                                        type="text"
+                                        value={dmSearchQuery}
+                                        onChange={(e) => setDmSearchQuery?.(e.target.value)}
+                                        placeholder="Arkadaşlarında ara..."
+                                        className="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-9 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-orange-500/50 focus:ring-1 focus:ring-orange-500/20 transition-colors"
+                                    />
+                                    {dmSearchQuery && (
+                                        <button type="button" onClick={() => setDmSearchQuery?.('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-lg text-zinc-500 hover:text-white hover:bg-white/10" title="Temizle"><X size={16} /></button>
+                                    )}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    {(['all', 'online', 'offline'] as const).map((key) => (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => setDmStatusFilter?.(key)}
+                                            className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium transition-colors ${
+                                                dmStatusFilter === key ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'bg-white/5 text-zinc-400 border border-transparent hover:bg-white/10 hover:text-zinc-300'
+                                            }`}
+                                        >
+                                            {key === 'all' && <Users size={12} />}
+                                            {key === 'online' && <Circle size={12} className="text-green-500" />}
+                                            {key === 'offline' && <CircleOff size={12} />}
+                                            {key === 'all' && 'Tümü'}
+                                            {key === 'online' && 'Çevrimiçi'}
+                                            {key === 'offline' && 'Çevrimdışı'}
+                                        </button>
+                                    ))}
+                                    <select
+                                        value={dmSortBy}
+                                        onChange={(e) => setDmSortBy?.(e.target.value as 'name_asc' | 'name_desc' | 'online_first')}
+                                        className="ml-auto bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-xs text-zinc-300 focus:outline-none focus:border-orange-500/50"
+                                    >
+                                        <option value="online_first">Çevrimiçi önce</option>
+                                        <option value="name_asc">İsim A-Z</option>
+                                        <option value="name_desc">İsim Z-A</option>
+                                    </select>
+                                </div>
+                                <p className="text-[11px] text-zinc-500 px-0.5">
+                                    {filteredFriends.length === 0 ? 'Eşleşen arkadaş yok' : `${filteredFriends.length} / ${friendsCount} arkadaş`}
+                                </p>
+                            </div>
+
+                            <div className="space-y-1 overflow-y-auto pr-1 flex-1 custom-scrollbar min-h-0">
+                                {filteredFriends.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-8 text-center">
+                                        <Search className="text-zinc-600 mb-2" size={32} />
+                                        <p className="text-zinc-500 text-sm">Arama kriterlerine uyan arkadaş yok.</p>
+                                        <p className="text-xs text-zinc-600 mt-1">Filtreleri değiştirin veya arama metnini düzenleyin.</p>
+                                    </div>
+                                ) : (
+                                    filteredFriends.map((friend: any) => (
+                                        <div
+                                            key={friend.id}
+                                            onClick={() => handleDmSelect(friend)}
+                                            className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-colors group
+             ${activeDmUser?.id === friend.id ? 'bg-white/10' : 'hover:bg-white/5'}`}
+                                        >
+                                            <Avatar src={friend.avatar} size="sm" status={onlineUserIds.has(friend.id) ? 'online' : normalizeStatus(friend.status)} onClick={undefined} />
+                                            <div className="flex-1 min-w-0">
+                                                <div className={`text-sm font-medium transition-colors truncate ${activeDmUser?.id === friend.id ? 'text-white' : 'text-zinc-300'}`}>{friend.name}</div>
+                                                <div className="text-xs text-zinc-500 truncate group-hover:text-zinc-400">{friend.lastMsg || 'Mesaj yok'}</div>
+                                            </div>
+                                            {onStartCall && (
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); onStartCall(friend); }}
+                                                    className="p-2 rounded-lg text-zinc-400 hover:text-orange-400 hover:bg-orange-500/10 opacity-0 group-hover:opacity-100 transition-all"
+                                                    title="Ara"
+                                                >
+                                                    <Phone size={16} />
+                                                </button>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        </>
+                    )}
                 </div>
             ) : (
                 <>
